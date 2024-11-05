@@ -2,9 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"mailer-api/.internal/models"
-	"mailer-api/.internal/services"
 	"mailer-api/.internal/workers"
 
 	"github.com/gofiber/fiber/v2"
@@ -28,16 +26,6 @@ func (h *MailHandler) SendMail(c *fiber.Ctx) error {
 	var req models.MailRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
-	}
-
-	// Validate attachments
-	for _, attachment := range req.Attachments {
-		if attachment.FileSize > services.MaxFileSize {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": fmt.Sprintf("file %s exceeds maximum size limit of %d bytes",
-					attachment.FileName, services.MaxFileSize),
-			})
-		}
 	}
 
 	dataJSON, err := json.Marshal(req.Data)
@@ -64,9 +52,8 @@ func (h *MailHandler) SendMail(c *fiber.Ctx) error {
 	// Create attachment records
 	for _, attachment := range req.Attachments {
 		att := models.Attachment{
-			MailID:   mail.ID,
-			FileName: attachment.FileName,
-			FilePath: attachment.FilePath,
+			MailID: mail.ID,
+			File:   attachment.File,
 		}
 		if err := tx.Create(&att).Error; err != nil {
 			tx.Rollback()

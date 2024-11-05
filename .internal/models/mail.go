@@ -9,9 +9,7 @@ import (
 type Attachment struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
 	MailID    uint           `json:"mail_id"`
-	FileName  string         `json:"file_name"`
-	FilePath  string         `json:"file_path"`
-	FileSize  int64          `json:"file_size"`
+	File      string         `json:"file"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
@@ -40,7 +38,5 @@ type MailRequest struct {
 }
 
 type AttachmentRequest struct {
-	FileName string `json:"file_name"`
-	FilePath string `json:"file_path"`
-	FileSize int64  `json:"file_size,omitempty"`
+	File string `json:"file"`
 }

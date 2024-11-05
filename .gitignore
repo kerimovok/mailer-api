@@ -1,1 +1,9 @@
+# Existing entries
 .env
+
+# New entries
+attachments/*
+!attachments/.gitkeep
+
+templates/*
+!templates/.gitkeep

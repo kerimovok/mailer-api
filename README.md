@@ -1,18 +1,12 @@
 # Mailer API
 
-A robust email service built with Go, featuring asynchronous processing, template support, and advanced attachment handling.
+A robust email service built with Go, featuring asynchronous processing, template support, and local file attachment.
 
 ## Features
 
 -   Asynchronous email processing using Redis and Asynq
 -   HTML email templates
--   Advanced file attachment handling:
-    -   Local and remote file support
-    -   Concurrent downloads for multiple attachments
-    -   Automatic file type validation
-    -   File size limits
-    -   Memory-efficient streaming for large files
-    -   Retry logic for failed downloads
+-   Local file attachment
 -   PostgreSQL for data persistence
 -   Docker containerization
 -   Monitoring UI with Asynqmon
@@ -62,17 +56,40 @@ DB_NAME=mailer
 REDIS_ADDR=redis:6379
 ```
 
-## File Attachment Specifications
+## Templates
 
--   Maximum file size: 10MB
-    -   Supported file types:
-        -   Documents (.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .rtf, .json, .xml)
-        -   Images (.jpeg, .png, .gif, .bmp, .tiff, .webp, .svg)
-        -   Audio (.mp3, .wav, .ogg, .mp4, .x-wav)
-        -   Video (.mp4, .mkv, .avi, .mov, .webm)
-        -   Archives (.zip, .rar, .tar, .gz, .7z)
-        -   Text (.txt, .html)
-        -   Miscellaneous (.swf, .bin, .exe, .dmg)
+Create a `templates` directory in the root directory and add your HTML templates inside it.
+
+Example files:
+
+```
+templates/
+├── welcome.html
+└── reset-password.html
+```
+
+Example content of `welcome.html`:
+
+```welcome.html
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Welcome {{.name}}</h1>
+</body>
+</html>
+```
+
+## Attachments
+
+Create a `attachments` directory in the root directory and add your attachments inside it.
+
+Example files:
+
+```
+attachments/
+├── document.pdf
+└── local-file.jpg
+```
 
 ## API Endpoints
 
@@ -88,18 +105,13 @@ Request body:
 {
 	"to": "recipient@example.com",
 	"subject": "Email Subject",
-	"template": "welcome",
+	"template": "welcome", // template name without extension
 	"data": {
 		"name": "John Doe"
 	},
 	"attachments": [
 		{
-			"file_name": "document.pdf",
-			"file_path": "https://example.com/document.pdf"
-		},
-		{
-			"file_name": "local-file.jpg",
-			"file_path": "/path/to/local/file.jpg"
+			"file": "local-file.jpg" // file name with extension
 		}
 	]
 }
@@ -129,6 +141,7 @@ GET /api/v1/mails/:id
 │   ├── routes/
 │   ├── services/
 │   └── workers/
+├── attachments/
 ├── templates/
 ├── .env
 ├── docker-compose.yml

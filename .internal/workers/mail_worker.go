@@ -46,8 +46,7 @@ func (processor *MailProcessor) ProcessMail(ctx context.Context, t *asynq.Task) 
 	attachments := make([]models.AttachmentRequest, len(mail.Attachments))
 	for i, att := range mail.Attachments {
 		attachments[i] = models.AttachmentRequest{
-			FileName: att.FileName,
-			FilePath: att.FilePath,
+			File: att.File,
 		}
 	}
 

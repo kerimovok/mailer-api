@@ -24,6 +24,7 @@ services:
                 condition: service_healthy
         volumes:
             - ./templates:/app/templates
+            - ./attachments:/app/attachments
         networks:
             - mailer-network
 
