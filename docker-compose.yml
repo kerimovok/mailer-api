@@ -1,0 +1,91 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        ports:
+            - '${PORT}:${PORT}'
+        environment:
+            - PORT=${PORT}
+            - DB_HOST=postgres
+            - DB_PORT=5432
+            - DB_USER=postgres
+            - DB_PASSWORD=postgres
+            - DB_NAME=mailer
+            - REDIS_ADDR=redis:6379
+            - SMTP_HOST=${SMTP_HOST}
+            - SMTP_PORT=${SMTP_PORT}
+            - SMTP_USERNAME=${SMTP_USERNAME}
+            - SMTP_PASSWORD=${SMTP_PASSWORD}
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        volumes:
+            - ./templates:/app/templates
+        networks:
+            - mailer-network
+
+    postgres:
+        platform: linux/x86_64
+        image: postgres:15-alpine
+        environment:
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_DB=mailer
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U postgres']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - mailer-network
+
+    adminer:
+        image: adminer:latest
+        ports:
+            - '8081:8080'
+        environment:
+            - ADMINER_DEFAULT_SERVER=postgres
+            - ADMINER_DESIGN=dracula
+        depends_on:
+            postgres:
+                condition: service_healthy
+        networks:
+            - mailer-network
+
+    redis:
+        platform: linux/x86_64
+        image: redis:7-alpine
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - mailer-network
+
+    asynqmon:
+        image: hibiken/asynqmon
+        ports:
+            - '8080:8080'
+        environment:
+            - REDIS_ADDR=redis:6379
+        depends_on:
+            redis:
+                condition: service_healthy
+        networks:
+            - mailer-network
+
+networks:
+    mailer-network:
+        driver: bridge
+
+volumes:
+    postgres_data:
+    redis_data:
