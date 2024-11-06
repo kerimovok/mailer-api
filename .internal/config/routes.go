@@ -1,4 +1,4 @@
-package routes
+package config
 
 import (
 	"mailer-api/.internal/handlers"

@@ -4,8 +4,6 @@ package main
 import (
 	"log"
 	"mailer-api/.internal/config"
-	"mailer-api/.internal/models"
-	"mailer-api/.internal/routes"
 	"mailer-api/.internal/services"
 	"mailer-api/.internal/workers"
 	"net/http"
@@ -27,11 +25,6 @@ func main() {
 	db, err := config.SetupDatabase(cfg)
 	if err != nil {
 		log.Fatal("Failed to setup database:", err)
-	}
-
-	// After database setup
-	if err := db.AutoMigrate(&models.Mail{}, &models.Attachment{}); err != nil {
-		log.Fatal("Failed to auto-migrate database:", err)
 	}
 
 	// Setup Redis and Asynq
@@ -57,7 +50,7 @@ func main() {
 	app := fiber.New()
 
 	// Setup routes
-	routes.SetupRoutes(app, db, asynqClient)
+	config.SetupRoutes(app, db, asynqClient)
 
 	// Graceful shutdown channel
 	quit := make(chan os.Signal, 1)

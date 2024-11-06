@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"mailer-api/.internal/models"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -25,6 +26,11 @@ func SetupDatabase(cfg *Config) (*gorm.DB, error) {
 	// Set connection pool settings
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
+
+	// After database setup
+	if err := db.AutoMigrate(&models.Mail{}, &models.Attachment{}); err != nil {
+		return nil, fmt.Errorf("failed to migrate database: %w", err)
+	}
 
 	return db, nil
 }

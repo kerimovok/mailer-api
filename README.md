@@ -28,31 +28,42 @@ A robust email service built with Go, featuring asynchronous processing, templat
 -   Go 1.23.2 or higher
 -   SMTP server credentials
 
+## Security Notes
+
+⚠️ **Important Security Considerations:**
+
+1. In production environments, DO NOT expose the API port directly
+2. The routes are not protected by authentication
+3. Use a reverse proxy (like Nginx or Traefik) for production deployments
+4. Ensure proper network security and access controls are in place
+
 ## Configuration
 
 Create a `.env` file in the root directory with the following variables:
 
 ```env
-# Server
-PORT=3000
+#== SERVER ==#
+PORT=3002
 
-# SMTP Configuration
-SMTP_HOST=your-smtp-host
-SMTP_PORT=587
-SMTP_USERNAME=your-smtp-username
-SMTP_PASSWORD=your-smtp-password
-SMTP_FROM=Company Name
+#== SMTP ==#
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587 # 465, 587
+SMTP_USERNAME=your-email@example.com
+SMTP_PASSWORD=your-password
+SMTP_FROM=Company Name # <username> will be appended to this, don't include it here
 
-# If you are not using docker-compose, you need to set the following variables below
+#== IF YOU DON'T WANT TO USE DOCKER COMPOSE ==#
+#== YOU MUST PROVIDE OWN POSTGRES AND REDIS ==#
+#== DOCKER COMPOSE WILL NOT USE THEM ==#
 
-# Database
+#== Postgres ==#
 DB_HOST=postgres
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=postgres
 DB_NAME=mailer
 
-# Redis
+#== Redis ==#
 REDIS_ADDR=redis:6379
 ```
 
@@ -134,21 +145,30 @@ GET /api/v1/mails/:id
 ```
 .
 ├── .internal/
-│   ├── config/
-│   ├── handlers/
-│   ├── middleware/
-│   ├── models/
-│   ├── routes/
-│   ├── services/
-│   └── workers/
-├── attachments/
-├── templates/
+│   ├── config/ # Configuration and setup
+│   ├── handlers/ # HTTP handlers
+│   ├── middleware/ # HTTP middleware
+│   ├── models/ # Database models
+│   ├── routes/ # API routes
+│   ├── services/ # Business logic
+│   └── workers/ # Background workers
+├── attachments/ # Email attachments
+├── templates/ # Email templates
 ├── .env
 ├── docker-compose.yml
 ├── Dockerfile
 ├── go.mod
-└── main.go
+└── main.go # Main application file
 ```
+
+## Services
+
+The application consists of the following services:
+
+1. **API Service**: Main application service
+2. **PostgreSQL**: Database service (v15)
+3. **Redis**: Message broker and task queue (v7)
+4. **Adminer**: Database management UI
 
 ## Running the Application
 
