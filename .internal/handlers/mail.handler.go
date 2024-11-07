@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"mailer-api/.internal/models"
+	"mailer-api/.internal/utils"
 	"mailer-api/.internal/workers"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,12 +26,12 @@ func NewMailHandler(db *gorm.DB, client *asynq.Client) *MailHandler {
 func (h *MailHandler) SendMail(c *fiber.Ctx) error {
 	var req models.MailRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err)
 	}
 
 	dataJSON, err := json.Marshal(req.Data)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to marshal data", err)
 	}
 
 	// Create mail record
@@ -46,7 +47,7 @@ func (h *MailHandler) SendMail(c *fiber.Ctx) error {
 	tx := h.db.Begin()
 	if err := tx.Create(&mail).Error; err != nil {
 		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create mail record", err)
 	}
 
 	// Create attachment records
@@ -57,44 +58,41 @@ func (h *MailHandler) SendMail(c *fiber.Ctx) error {
 		}
 		if err := tx.Create(&att).Error; err != nil {
 			tx.Rollback()
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create attachment record", err)
 		}
 	}
 
 	// Commit transaction
 	if err := tx.Commit().Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to commit transaction", err)
 	}
 
 	task, err := workers.NewEmailTask(mail.ID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create email task", err)
 	}
 
 	_, err = h.client.Enqueue(task)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to enqueue email task", err)
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    mail,
-	})
+	return utils.SuccessResponse(c, "Email queued successfully", mail)
 }
 
 func (h *MailHandler) GetMails(c *fiber.Ctx) error {
 	var mails []models.Mail
 	if err := h.db.Find(&mails).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch mails"})
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to fetch mails", err)
 	}
-	return c.JSON(mails)
+	return utils.SuccessResponse(c, "Mails fetched successfully", mails)
 }
 
 func (h *MailHandler) GetMailByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var mail models.Mail
 	if err := h.db.First(&mail, id).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Mail not found"})
+		return utils.ErrorResponse(c, fiber.StatusNotFound, "Mail not found", err)
 	}
-	return c.JSON(mail)
+	return utils.SuccessResponse(c, "Mail fetched successfully", mail)
 }
