@@ -16,7 +16,7 @@ type Config struct {
 	DBHost       string
 	DBPort       string
 	DBUser       string
-	DBPassword   string
+	DBPass       string
 	DBName       string
 	RedisAddr    string
 }
@@ -37,7 +37,7 @@ func LoadConfig() (*Config, error) {
 		DBHost:       os.Getenv("DB_HOST"),
 		DBPort:       os.Getenv("DB_PORT"),
 		DBUser:       os.Getenv("DB_USER"),
-		DBPassword:   os.Getenv("DB_PASSWORD"),
+		DBPass:       os.Getenv("DB_PASS"),
 		DBName:       os.Getenv("DB_NAME"),
 		RedisAddr:    os.Getenv("REDIS_ADDR"),
 	}, nil

@@ -32,9 +32,10 @@ RUN mkdir -p /app/templates /app/attachments
 # Copy binary from builder
 COPY --from=builder /build/main .
 
-# Copy templates and attachments directories
+# Copy templates, attachments, and .env file
 COPY templates/ /app/templates/
 COPY attachments/ /app/attachments/
+COPY .env /app/
 
 # Run the application
-CMD ["./main"] 
+CMD ["./main"]
