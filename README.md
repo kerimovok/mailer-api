@@ -65,6 +65,7 @@ DB_NAME=mailer
 
 #== Redis ==#
 REDIS_ADDR=redis:6379
+REDIS_PASSWORD=redis
 ```
 
 ## Templates
@@ -85,10 +86,10 @@ Example content of `welcome.html`:
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{{.Subject}}</title>
+    <title>{{.subject}}</title>
 </head>
 <body>
-    <h1>Welcome {{.Name}}</h1>
+    <h1>Welcome {{.name}}</h1>
 </body>
 </html>
 ```
@@ -118,7 +119,7 @@ Request body:
 ```json
 {
 	"to": "recipient@example.com",
-	"subject": "Welcome {{.Name}}",
+	"subject": "Welcome {{.name}}",
 	"template": "welcome", // template name without extension
 	"data": {
 		"name": "John Doe"
