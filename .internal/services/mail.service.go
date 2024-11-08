@@ -44,6 +44,17 @@ func (s *MailService) SendMail(to, subject, templateName string, data string, at
 		return fmt.Errorf("failed to unmarshal template data: %w", err)
 	}
 
+	// Parse subject as template
+	subjectTmpl, err := template.New("subject").Parse(subject)
+	if err != nil {
+		return fmt.Errorf("failed to parse subject template: %w", err)
+	}
+
+	var parsedSubject bytes.Buffer
+	if err := subjectTmpl.Execute(&parsedSubject, templateData); err != nil {
+		return fmt.Errorf("failed to execute subject template: %w", err)
+	}
+
 	// Use absolute path for template
 	templatePath := filepath.Join("templates", templateName+".html")
 	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
@@ -63,7 +74,7 @@ func (s *MailService) SendMail(to, subject, templateName string, data string, at
 	m := gomail.NewMessage()
 	m.SetHeader("From", fmt.Sprintf("%s <%s>", s.smtpFrom, s.smtpUsername))
 	m.SetHeader("To", to)
-	m.SetHeader("Subject", subject)
+	m.SetHeader("Subject", parsedSubject.String())
 	m.SetBody("text/html", body.String())
 
 	// Process attachments

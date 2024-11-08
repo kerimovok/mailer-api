@@ -84,8 +84,11 @@ Example content of `welcome.html`:
 ```welcome.html
 <!DOCTYPE html>
 <html>
+<head>
+    <title>{{.Subject}}</title>
+</head>
 <body>
-    <h1>Welcome {{.name}}</h1>
+    <h1>Welcome {{.Name}}</h1>
 </body>
 </html>
 ```
@@ -115,7 +118,7 @@ Request body:
 ```json
 {
 	"to": "recipient@example.com",
-	"subject": "Email Subject",
+	"subject": "Welcome {{.Name}}",
 	"template": "welcome", // template name without extension
 	"data": {
 		"name": "John Doe"
