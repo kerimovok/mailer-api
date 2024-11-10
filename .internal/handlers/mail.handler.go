@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"mailer-api/.internal/models"
 	"mailer-api/.internal/utils"
 	"mailer-api/.internal/workers"
@@ -31,6 +32,7 @@ func (h *MailHandler) SendMail(c *fiber.Ctx) error {
 
 	dataJSON, err := json.Marshal(req.Data)
 	if err != nil {
+		log.Printf("Failed to marshal data: %v", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to marshal data", err)
 	}
 
@@ -47,6 +49,7 @@ func (h *MailHandler) SendMail(c *fiber.Ctx) error {
 	tx := h.db.Begin()
 	if err := tx.Create(&mail).Error; err != nil {
 		tx.Rollback()
+		log.Printf("Failed to create mail record: %v", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create mail record", err)
 	}
 
@@ -58,22 +61,26 @@ func (h *MailHandler) SendMail(c *fiber.Ctx) error {
 		}
 		if err := tx.Create(&att).Error; err != nil {
 			tx.Rollback()
+			log.Printf("Failed to create attachment record: %v", err)
 			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create attachment record", err)
 		}
 	}
 
 	// Commit transaction
 	if err := tx.Commit().Error; err != nil {
+		log.Printf("Failed to commit transaction: %v", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to commit transaction", err)
 	}
 
 	task, err := workers.NewEmailTask(mail.ID)
 	if err != nil {
+		log.Printf("Failed to create email task: %v", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create email task", err)
 	}
 
 	_, err = h.client.Enqueue(task)
 	if err != nil {
+		log.Printf("Failed to enqueue email task: %v", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to enqueue email task", err)
 	}
 
@@ -83,6 +90,7 @@ func (h *MailHandler) SendMail(c *fiber.Ctx) error {
 func (h *MailHandler) GetMails(c *fiber.Ctx) error {
 	var mails []models.Mail
 	if err := h.db.Find(&mails).Error; err != nil {
+		log.Printf("Failed to fetch mails: %v", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to fetch mails", err)
 	}
 	return utils.SuccessResponse(c, "Mails fetched successfully", mails)
