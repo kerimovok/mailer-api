@@ -8,11 +8,11 @@ import (
 
 type Attachment struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
-	MailID    uint           `json:"mail_id"`
+	MailID    uint           `json:"mailId"`
 	File      string         `json:"file"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `json:"deletedAt,omitempty" gorm:"index"`
 }
 
 type Mail struct {
@@ -24,9 +24,9 @@ type Mail struct {
 	Status      string         `json:"status"`
 	Error       string         `json:"error,omitempty"`
 	Attachments []Attachment   `json:"attachments"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	DeletedAt   gorm.DeletedAt `json:"deletedAt,omitempty" gorm:"index"`
 }
 
 type MailRequest struct {
