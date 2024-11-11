@@ -6,6 +6,7 @@ import (
 	"mailer-api/.internal/models"
 	"mailer-api/.internal/services"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 )
@@ -22,7 +23,7 @@ func NewMailProcessor(db *gorm.DB, service *services.MailService) *MailProcessor
 	}
 }
 
-func NewEmailTask(mailID uint) (*asynq.Task, error) {
+func NewEmailTask(mailID uuid.UUID) (*asynq.Task, error) {
 	payload, err := json.Marshal(map[string]interface{}{"mail_id": mailID})
 	if err != nil {
 		return nil, err
@@ -36,7 +37,7 @@ func (processor *MailProcessor) ProcessMail(ctx context.Context, t *asynq.Task) 
 		return err
 	}
 
-	mailID := uint(payload["mail_id"].(float64))
+	mailID := payload["mail_id"].(uuid.UUID)
 	var mail models.Mail
 	if err := processor.db.Preload("Attachments").First(&mail, mailID).Error; err != nil {
 		return err
