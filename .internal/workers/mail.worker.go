@@ -3,6 +3,7 @@ package workers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"mailer-api/.internal/models"
 	"mailer-api/.internal/services"
 
@@ -37,7 +38,21 @@ func (processor *MailProcessor) ProcessMail(ctx context.Context, t *asynq.Task) 
 		return err
 	}
 
-	mailID := payload["mail_id"].(uuid.UUID)
+	mailIDInterface, ok := payload["mail_id"]
+	if !ok {
+		return fmt.Errorf("mail_id not found in payload")
+	}
+
+	mailIDStr, ok := mailIDInterface.(string)
+	if !ok {
+		return fmt.Errorf("mail_id is not a string")
+	}
+
+	mailID, err := uuid.Parse(mailIDStr)
+	if err != nil {
+		return fmt.Errorf("invalid UUID format: %w", err)
+	}
+
 	var mail models.Mail
 	if err := processor.db.Preload("Attachments").First(&mail, mailID).Error; err != nil {
 		return err
@@ -51,7 +66,7 @@ func (processor *MailProcessor) ProcessMail(ctx context.Context, t *asynq.Task) 
 		}
 	}
 
-	err := processor.service.SendMail(mail.To, mail.Subject, mail.Template, mail.Data, attachments)
+	err = processor.service.SendMail(mail.To, mail.Subject, mail.Template, mail.Data, attachments)
 	if err != nil {
 		mail.Status = "failed"
 		mail.Error = err.Error()
