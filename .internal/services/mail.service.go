@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"mailer-api/.internal/models"
 	"os"
 	"path/filepath"
@@ -58,6 +59,7 @@ func (s *MailService) SendMail(to, subject, templateName string, data string, at
 	// Use absolute path for template
 	templatePath := filepath.Join("templates", templateName+".html")
 	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
+		log.Printf("Template file not found: %s", templatePath)
 		return fmt.Errorf("template not found: %s", templateName)
 	}
 

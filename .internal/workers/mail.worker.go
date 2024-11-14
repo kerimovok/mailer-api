@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"mailer-api/.internal/models"
 	"mailer-api/.internal/services"
 
@@ -68,9 +69,11 @@ func (processor *MailProcessor) ProcessMail(ctx context.Context, t *asynq.Task) 
 
 	err = processor.service.SendMail(mail.To, mail.Subject, mail.Template, mail.Data, attachments)
 	if err != nil {
+		log.Printf("Failed to send email to %s: %v", mail.To, err)
 		mail.Status = "failed"
 		mail.Error = err.Error()
 	} else {
+		log.Printf("Successfully sent email to %s", mail.To)
 		mail.Status = "sent"
 	}
 
