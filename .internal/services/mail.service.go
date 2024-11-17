@@ -39,6 +39,14 @@ func NewMailService(host, port, username, password, from string) *MailService {
 	}
 }
 
+func createTemplateFuncMap() template.FuncMap {
+	return template.FuncMap{
+		"safeURL": func(s string) template.URL {
+			return template.URL(s)
+		},
+	}
+}
+
 func (s *MailService) SendMail(to, subject, templateName string, data string, attachments []models.AttachmentRequest) error {
 	var templateData map[string]interface{}
 	if err := json.Unmarshal([]byte(data), &templateData); err != nil {
@@ -63,7 +71,10 @@ func (s *MailService) SendMail(to, subject, templateName string, data string, at
 		return fmt.Errorf("template not found: %s", templateName)
 	}
 
-	tmpl, err := template.ParseFiles(templatePath)
+	// Create template with function map
+	tmpl, err := template.New(templateName + ".html").
+		Funcs(createTemplateFuncMap()).
+		ParseFiles(templatePath)
 	if err != nil {
 		return fmt.Errorf("failed to parse template: %w", err)
 	}
