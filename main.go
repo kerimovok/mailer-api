@@ -14,7 +14,32 @@ import (
 	"syscall"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/healthcheck"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/google/uuid"
 )
+
+func setupApp() *fiber.App {
+	app := fiber.New(fiber.Config{})
+
+	// Middleware
+	app.Use(helmet.New())
+	app.Use(cors.New())
+	app.Use(compress.New())
+	app.Use(healthcheck.New())
+	app.Use(requestid.New(requestid.Config{
+		Generator: func() string {
+			return uuid.New().String()
+		},
+	}))
+	app.Use(logger.New())
+
+	return app
+}
 
 func main() {
 	// Load configuration
@@ -22,6 +47,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Setup Fiber app
+	app := setupApp()
 
 	// Setup database connection
 	db, err := database.SetupDatabase(cfg)
@@ -47,9 +75,6 @@ func main() {
 	if err := config.SetupWorkers(server, mailProcessor); err != nil {
 		log.Fatal("Failed to setup workers:", err)
 	}
-
-	// Setup Fiber app
-	app := fiber.New()
 
 	// Setup routes
 	routes.SetupRoutes(app, db, asynqClient)
