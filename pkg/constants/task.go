@@ -1,5 +1,5 @@
-package workers
+package constants
 
 const (
 	TaskTypeSendEmail = "email:send"
-) 
+)

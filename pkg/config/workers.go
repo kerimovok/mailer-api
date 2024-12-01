@@ -2,7 +2,8 @@ package config
 
 import (
 	"log"
-	"mailer-api/.internal/workers"
+	"mailer-api/internal/workers"
+	"mailer-api/pkg/constants"
 
 	"github.com/hibiken/asynq"
 )
@@ -10,8 +11,8 @@ import (
 func SetupWorkers(server *asynq.Server, processor *workers.MailProcessor) error {
 	mux := asynq.NewServeMux()
 
-	// Register task handlers
-	mux.HandleFunc(workers.TaskTypeSendEmail, processor.ProcessMail)
+	// Register task controllers
+	mux.HandleFunc(constants.TaskTypeSendEmail, processor.ProcessMail)
 
 	// Start Asynq server
 	go func() {

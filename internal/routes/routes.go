@@ -1,7 +1,7 @@
-package config
+package routes
 
 import (
-	"mailer-api/.internal/handlers"
+	"mailer-api/internal/controllers"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"
@@ -9,8 +9,8 @@ import (
 )
 
 func SetupRoutes(app *fiber.App, db *gorm.DB, asynqClient *asynq.Client) {
-	// Create handlers
-	mailHandler := handlers.NewMailHandler(db, asynqClient)
+	// Create controllers
+	mailHandler := controllers.NewMailHandler(db, asynqClient)
 
 	// API routes group
 	api := app.Group("/api")

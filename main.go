@@ -3,9 +3,11 @@ package main
 
 import (
 	"log"
-	"mailer-api/.internal/config"
-	"mailer-api/.internal/services"
-	"mailer-api/.internal/workers"
+	"mailer-api/internal/routes"
+	"mailer-api/internal/services"
+	"mailer-api/internal/workers"
+	"mailer-api/pkg/config"
+	"mailer-api/pkg/database"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,7 +24,7 @@ func main() {
 	}
 
 	// Setup database connection
-	db, err := config.SetupDatabase(cfg)
+	db, err := database.SetupDatabase(cfg)
 	if err != nil {
 		log.Fatal("Failed to setup database:", err)
 	}
@@ -50,7 +52,7 @@ func main() {
 	app := fiber.New()
 
 	// Setup routes
-	config.SetupRoutes(app, db, asynqClient)
+	routes.SetupRoutes(app, db, asynqClient)
 
 	// Graceful shutdown channel
 	quit := make(chan os.Signal, 1)

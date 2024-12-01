@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"mailer-api/.internal/models"
+	"mailer-api/internal/models"
 	"os"
 	"path/filepath"
 	"strconv"

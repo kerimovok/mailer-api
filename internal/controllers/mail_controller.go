@@ -1,11 +1,11 @@
-package handlers
+package controllers
 
 import (
 	"encoding/json"
 	"log"
-	"mailer-api/.internal/models"
-	"mailer-api/.internal/utils"
-	"mailer-api/.internal/workers"
+	"mailer-api/internal/models"
+	"mailer-api/internal/workers"
+	"mailer-api/pkg/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"

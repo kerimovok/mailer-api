@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"mailer-api/.internal/models"
-	"mailer-api/.internal/services"
+	"mailer-api/internal/models"
+	"mailer-api/internal/services"
+	"mailer-api/pkg/constants"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -30,7 +31,7 @@ func NewEmailTask(mailID uuid.UUID) (*asynq.Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	return asynq.NewTask(TaskTypeSendEmail, payload), nil
+	return asynq.NewTask(constants.TaskTypeSendEmail, payload), nil
 }
 
 func (processor *MailProcessor) ProcessMail(ctx context.Context, t *asynq.Task) error {
