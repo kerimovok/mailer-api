@@ -1,4 +1,6 @@
-# Existing entries
+.idea
+
+# Environment variables
 .env
 
 # Attachments
@@ -8,3 +10,6 @@ attachments/*
 # Templates
 templates/*
 !templates/.gitkeep
+
+# DS_STORE
+.DS_Store
