@@ -35,7 +35,6 @@ COPY --from=builder /build/main .
 # Copy templates, attachments, and .env file
 COPY templates/ /app/templates/
 COPY attachments/ /app/attachments/
-COPY .env /app/
 
 # Run the application
 CMD ["./main"]
