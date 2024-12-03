@@ -24,7 +24,7 @@ type Config struct {
 
 func LoadConfig() (*Config, error) {
 	err := godotenv.Load()
-	if err != nil {
+	if err != nil && os.Getenv("GO_ENV") != "production" {
 		return nil, err
 	}
 
