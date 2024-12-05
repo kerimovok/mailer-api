@@ -25,7 +25,7 @@ import (
 
 func init() {
 	// Load environment variables
-	if err := config.LoadEnv(); err != nil {
+	if err := config.LoadConfig(); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -64,11 +64,11 @@ func main() {
 
 	// Setup mail service
 	mailService := services.NewMailService(
-		config.AppConfig.SMTP.Host,
-		config.AppConfig.SMTP.Port,
-		config.AppConfig.SMTP.Username,
-		config.AppConfig.SMTP.Password,
-		config.AppConfig.SMTP.From,
+		config.Env.SMTP.Host,
+		config.Env.SMTP.Port,
+		config.Env.SMTP.Username,
+		config.Env.SMTP.Password,
+		config.Env.SMTP.From,
 	)
 
 	// Setup mail processor and workers
@@ -96,7 +96,7 @@ func main() {
 	}()
 
 	// Start server
-	if err := app.Listen(":" + config.AppConfig.Server.Port); err != nil && err != http.ErrServerClosed {
+	if err := app.Listen(":" + config.Env.Server.Port); err != nil && err != http.ErrServerClosed {
 		log.Fatal("Failed to start server:", err)
 	}
 }

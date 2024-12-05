@@ -11,7 +11,7 @@ import (
 
 func SetupDatabase() (*gorm.DB, error) {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC",
-		config.AppConfig.DB.Host, config.AppConfig.DB.User, config.AppConfig.DB.Pass, config.AppConfig.DB.Name, config.AppConfig.DB.Port,
+		config.Env.DB.Host, config.Env.DB.User, config.Env.DB.Pass, config.Env.DB.Name, config.Env.DB.Port,
 	)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 

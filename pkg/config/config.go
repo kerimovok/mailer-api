@@ -14,9 +14,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var AppConfig *Config
+var (
+	Env *EnvConfig
+)
 
-type Config struct {
+type EnvConfig struct {
 	Server struct {
 		Port        string
 		Environment string
@@ -48,20 +50,20 @@ type ValidationRule struct {
 	Message string
 }
 
-func LoadEnv() error {
+func LoadConfig() error {
 	if err := godotenv.Load(); err != nil {
-		if os.Getenv("GO_ENV") != "production" {
+		if GetEnv("GO_ENV") != "production" {
 			log.Printf("Warning: .env file not found")
 		}
 	}
 
-	AppConfig = &Config{
+	Env = &EnvConfig{
 		Server: struct {
 			Port        string
 			Environment string
 		}{
-			Port:        getEnvOrDefault("PORT", "3002"),
-			Environment: getEnvOrDefault("GO_ENV", "development"),
+			Port:        GetEnvOrDefault("PORT", "3002"),
+			Environment: GetEnvOrDefault("GO_ENV", "development"),
 		},
 		SMTP: struct {
 			Host     string
@@ -70,11 +72,11 @@ func LoadEnv() error {
 			Password string
 			From     string
 		}{
-			Host:     getEnvOrDefault("SMTP_HOST", ""),
-			Port:     getEnvOrDefault("SMTP_PORT", ""),
-			Username: getEnvOrDefault("SMTP_USERNAME", ""),
-			Password: getEnvOrDefault("SMTP_PASSWORD", ""),
-			From:     getEnvOrDefault("SMTP_FROM", ""),
+			Host:     GetEnvOrDefault("SMTP_HOST", ""),
+			Port:     GetEnvOrDefault("SMTP_PORT", ""),
+			Username: GetEnvOrDefault("SMTP_USERNAME", ""),
+			Password: GetEnvOrDefault("SMTP_PASSWORD", ""),
+			From:     GetEnvOrDefault("SMTP_FROM", ""),
 		},
 		DB: struct {
 			Host string
@@ -83,18 +85,18 @@ func LoadEnv() error {
 			Pass string
 			Name string
 		}{
-			Host: getEnvOrDefault("DB_HOST", ""),
-			Port: getEnvOrDefault("DB_PORT", ""),
-			User: getEnvOrDefault("DB_USER", ""),
-			Pass: getEnvOrDefault("DB_PASS", ""),
-			Name: getEnvOrDefault("DB_NAME", ""),
+			Host: GetEnvOrDefault("DB_HOST", ""),
+			Port: GetEnvOrDefault("DB_PORT", ""),
+			User: GetEnvOrDefault("DB_USER", ""),
+			Pass: GetEnvOrDefault("DB_PASS", ""),
+			Name: GetEnvOrDefault("DB_NAME", ""),
 		},
 		Redis: struct {
 			Addr     string
 			Password string
 		}{
-			Addr:     getEnvOrDefault("REDIS_ADDR", ""),
-			Password: getEnvOrDefault("REDIS_PASSWORD", ""),
+			Addr:     GetEnvOrDefault("REDIS_ADDR", ""),
+			Password: GetEnvOrDefault("REDIS_PASSWORD", ""),
 		},
 	}
 
@@ -158,7 +160,7 @@ func validateConfig() error {
 		// Redis validation (only if in production)
 		{
 			Field:   "Redis.Addr",
-			Rule:    func(v string) bool { return AppConfig.Server.Environment != "production" || v != "" },
+			Rule:    func(v string) bool { return Env.Server.Environment != "production" || v != "" },
 			Message: "Redis address is required in production",
 		},
 	}
@@ -181,7 +183,7 @@ func validateConfig() error {
 // getConfigValue retrieves a configuration value using reflection based on the field path
 func getConfigValue(fieldPath string) string {
 	parts := strings.Split(fieldPath, ".")
-	value := reflect.ValueOf(AppConfig).Elem()
+	value := reflect.ValueOf(Env).Elem()
 
 	for _, part := range parts {
 		value = value.FieldByName(part)
@@ -221,8 +223,8 @@ func IsValidURL(urlStr string) bool {
 	return err == nil
 }
 
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
+func GetEnvOrDefault(key, defaultValue string) string {
+	if value := GetEnv(key); value != "" {
 		return value
 	}
 	return defaultValue
