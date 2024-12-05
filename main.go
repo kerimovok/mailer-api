@@ -28,6 +28,11 @@ func init() {
 	if err := config.LoadConfig(); err != nil {
 		log.Fatal(err)
 	}
+
+	// Connect to database
+	if err := database.ConnectDB(); err != nil {
+		log.Fatal("Error connecting to database:", err)
+	}
 }
 
 func setupApp() *fiber.App {
@@ -52,12 +57,6 @@ func main() {
 	// Setup Fiber app
 	app := setupApp()
 
-	// Setup database connection
-	db, err := database.SetupDatabase()
-	if err != nil {
-		log.Fatal("Failed to setup database:", err)
-	}
-
 	// Setup Redis and Asynq
 	asynqClient, server := config.SetupAsynq()
 	defer asynqClient.Close()
@@ -72,13 +71,13 @@ func main() {
 	)
 
 	// Setup mail processor and workers
-	mailProcessor := workers.NewMailProcessor(db, mailService)
+	mailProcessor := workers.NewMailProcessor(database.DB, mailService)
 	if err := config.SetupWorkers(server, mailProcessor); err != nil {
 		log.Fatal("Failed to setup workers:", err)
 	}
 
 	// Setup routes
-	routes.SetupRoutes(app, db, asynqClient)
+	routes.SetupRoutes(app, database.DB, asynqClient)
 
 	// Graceful shutdown channel
 	quit := make(chan os.Signal, 1)
