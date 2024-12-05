@@ -58,8 +58,8 @@ func main() {
 	app := setupApp()
 
 	// Setup Redis and Asynq
-	asynqClient, server := config.SetupAsynq()
-	defer asynqClient.Close()
+	config.ConnectAsynq()
+	defer config.AsynqClient.Close()
 
 	// Setup mail service
 	mailService := services.NewMailService(
@@ -72,12 +72,12 @@ func main() {
 
 	// Setup mail processor and workers
 	mailProcessor := workers.NewMailProcessor(database.DB, mailService)
-	if err := config.SetupWorkers(server, mailProcessor); err != nil {
+	if err := config.SetupWorkers(config.AsynqServer, mailProcessor); err != nil {
 		log.Fatal("Failed to setup workers:", err)
 	}
 
 	// Setup routes
-	routes.SetupRoutes(app, database.DB, asynqClient)
+	routes.SetupRoutes(app)
 
 	// Graceful shutdown channel
 	quit := make(chan os.Signal, 1)
@@ -91,7 +91,7 @@ func main() {
 			log.Fatal("Server forced to shutdown:", err)
 		}
 
-		server.Shutdown()
+		config.AsynqServer.Shutdown()
 	}()
 
 	// Start server
