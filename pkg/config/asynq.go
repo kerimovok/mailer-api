@@ -4,11 +4,11 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-func SetupAsynq(cfg *Config) (*asynq.Client, *asynq.Server) {
+func SetupAsynq() (*asynq.Client, *asynq.Server) {
 	// Redis connection setup
 	redisConnection := asynq.RedisClientOpt{
-		Addr:     cfg.RedisAddr,
-		Password: cfg.RedisPassword,
+		Addr:     AppConfig.Redis.Addr,
+		Password: AppConfig.Redis.Password,
 	}
 	// Asynq client setup
 	asynqClient := asynq.NewClient(redisConnection)

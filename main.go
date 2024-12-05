@@ -23,6 +23,13 @@ import (
 	"github.com/google/uuid"
 )
 
+func init() {
+	// Load environment variables
+	if err := config.LoadEnv(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 func setupApp() *fiber.App {
 	app := fiber.New(fiber.Config{})
 
@@ -42,32 +49,26 @@ func setupApp() *fiber.App {
 }
 
 func main() {
-	// Load configuration
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// Setup Fiber app
 	app := setupApp()
 
 	// Setup database connection
-	db, err := database.SetupDatabase(cfg)
+	db, err := database.SetupDatabase()
 	if err != nil {
 		log.Fatal("Failed to setup database:", err)
 	}
 
 	// Setup Redis and Asynq
-	asynqClient, server := config.SetupAsynq(cfg)
+	asynqClient, server := config.SetupAsynq()
 	defer asynqClient.Close()
 
 	// Setup mail service
 	mailService := services.NewMailService(
-		cfg.SMTPHost,
-		cfg.SMTPPort,
-		cfg.SMTPUsername,
-		cfg.SMTPPassword,
-		cfg.SMTPFrom,
+		config.AppConfig.SMTP.Host,
+		config.AppConfig.SMTP.Port,
+		config.AppConfig.SMTP.Username,
+		config.AppConfig.SMTP.Password,
+		config.AppConfig.SMTP.From,
 	)
 
 	// Setup mail processor and workers
@@ -95,7 +96,7 @@ func main() {
 	}()
 
 	// Start server
-	if err := app.Listen(":" + cfg.Port); err != nil && err != http.ErrServerClosed {
+	if err := app.Listen(":" + config.AppConfig.Server.Port); err != nil && err != http.ErrServerClosed {
 		log.Fatal("Failed to start server:", err)
 	}
 }

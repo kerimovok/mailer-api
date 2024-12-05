@@ -9,9 +9,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func SetupDatabase(cfg *config.Config) (*gorm.DB, error) {
+func SetupDatabase() (*gorm.DB, error) {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC",
-		cfg.DBHost, cfg.DBUser, cfg.DBPass, cfg.DBName, cfg.DBPort,
+		config.AppConfig.DB.Host, config.AppConfig.DB.User, config.AppConfig.DB.Pass, config.AppConfig.DB.Name, config.AppConfig.DB.Port,
 	)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
