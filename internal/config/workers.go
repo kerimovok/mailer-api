@@ -2,8 +2,8 @@ package config
 
 import (
 	"log"
+	"mailer-api/internal/constants"
 	"mailer-api/internal/workers"
-	"mailer-api/pkg/constants"
 
 	"github.com/hibiken/asynq"
 )

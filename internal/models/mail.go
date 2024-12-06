@@ -29,15 +29,3 @@ type Mail struct {
 	UpdatedAt   time.Time      `json:"updatedAt"`
 	DeletedAt   gorm.DeletedAt `json:"deletedAt,omitempty" gorm:"index"`
 }
-
-type MailRequest struct {
-	To          string                 `json:"to"`
-	Subject     string                 `json:"subject"`
-	Template    string                 `json:"template"`
-	Data        map[string]interface{} `json:"data"`
-	Attachments []AttachmentRequest    `json:"attachments,omitempty"`
-}
-
-type AttachmentRequest struct {
-	File string `json:"file"`
-}

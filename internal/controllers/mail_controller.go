@@ -2,73 +2,77 @@ package controllers
 
 import (
 	"encoding/json"
-	"log"
+	"mailer-api/internal/config"
 	"mailer-api/internal/models"
+	"mailer-api/internal/requests"
 	"mailer-api/internal/workers"
-	"mailer-api/pkg/config"
 	"mailer-api/pkg/database"
 	"mailer-api/pkg/utils"
+	"mailer-api/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 func SendMail(c *fiber.Ctx) error {
-	var req models.MailRequest
-	if err := c.BodyParser(&req); err != nil {
+	var input requests.MailRequest
+	if err := c.BodyParser(&input); err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err)
 	}
 
-	dataJSON, err := json.Marshal(req.Data)
+	if err := validator.ValidateStruct(&input); err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err)
+	}
+
+	dataJSON, err := json.Marshal(input.Data)
 	if err != nil {
-		log.Printf("Failed to marshal data: %v", err)
+		utils.LogError("failed to marshal data", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to marshal data", err)
 	}
 
 	// Create mail record
 	mail := models.Mail{
-		To:       req.To,
-		Subject:  req.Subject,
-		Template: req.Template,
+		To:       input.To,
+		Subject:  input.Subject,
+		Template: input.Template,
 		Data:     string(dataJSON),
 		Status:   "pending",
 	}
 
-	// Begin transaction
-	tx := database.DB.Begin()
-	if err := tx.Create(&mail).Error; err != nil {
-		tx.Rollback()
-		log.Printf("Failed to create mail record: %v", err)
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create mail record", err)
-	}
-
-	// Create attachment records
-	for _, attachment := range req.Attachments {
-		att := models.Attachment{
-			MailID: mail.ID,
-			File:   attachment.File,
+	// Use WithTransaction helper
+	err = database.WithTransaction(func(tx *gorm.DB) error {
+		// Create mail record
+		if err := tx.Create(&mail).Error; err != nil {
+			return err
 		}
-		if err := tx.Create(&att).Error; err != nil {
-			tx.Rollback()
-			log.Printf("Failed to create attachment record: %v", err)
-			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create attachment record", err)
-		}
-	}
 
-	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
-		log.Printf("Failed to commit transaction: %v", err)
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to commit transaction", err)
+		// Create attachment records
+		for _, attachment := range input.Attachments {
+			att := models.Attachment{
+				MailID: mail.ID,
+				File:   attachment.File,
+			}
+			if err := tx.Create(&att).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		utils.LogError("transaction failed", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to process mail", err)
 	}
 
 	task, err := workers.NewEmailTask(mail.ID)
 	if err != nil {
-		log.Printf("Failed to create email task: %v", err)
+		utils.LogError("failed to create email task", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create email task", err)
 	}
 
 	_, err = config.AsynqClient.Enqueue(task)
 	if err != nil {
-		log.Printf("Failed to enqueue email task: %v", err)
+		utils.LogError("failed to enqueue email task", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to enqueue email task", err)
 	}
 
@@ -78,7 +82,7 @@ func SendMail(c *fiber.Ctx) error {
 func GetMails(c *fiber.Ctx) error {
 	var mails []models.Mail
 	if err := database.DB.Find(&mails).Error; err != nil {
-		log.Printf("Failed to fetch mails: %v", err)
+		utils.LogError("failed to fetch mails", err)
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to fetch mails", err)
 	}
 	return utils.SuccessResponse(c, "Mails fetched successfully", mails)

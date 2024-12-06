@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"mailer-api/internal/models"
+	"mailer-api/internal/requests"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -47,7 +47,7 @@ func createTemplateFuncMap() template.FuncMap {
 	}
 }
 
-func (s *MailService) SendMail(to, subject, templateName string, data string, attachments []models.AttachmentRequest) error {
+func (s *MailService) SendMail(to, subject, templateName string, data string, attachments []requests.AttachmentRequest) error {
 	var templateData map[string]interface{}
 	if err := json.Unmarshal([]byte(data), &templateData); err != nil {
 		return fmt.Errorf("failed to unmarshal template data: %w", err)

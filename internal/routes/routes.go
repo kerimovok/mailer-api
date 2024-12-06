@@ -16,4 +16,6 @@ func SetupRoutes(app *fiber.App) {
 	mail.Post("/", controllers.SendMail)
 	mail.Get("/", controllers.GetMails)
 	mail.Get("/:id", controllers.GetMailByID)
+
+	// TODO: Add routes for attachments
 }

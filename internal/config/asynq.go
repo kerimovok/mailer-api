@@ -1,6 +1,8 @@
 package config
 
 import (
+	"mailer-api/pkg/utils"
+
 	"github.com/hibiken/asynq"
 )
 
@@ -9,8 +11,8 @@ var AsynqServer *asynq.Server
 
 func ConnectAsynq() {
 	redisConnection := asynq.RedisClientOpt{
-		Addr:     Env.Redis.Addr,
-		Password: Env.Redis.Password,
+		Addr:     utils.GetEnv("REDIS_ADDR"),
+		Password: utils.GetEnv("REDIS_PASSWORD"),
 	}
 
 	AsynqClient = asynq.NewClient(redisConnection)

@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"mailer-api/internal/constants"
 	"mailer-api/internal/models"
+	"mailer-api/internal/requests"
 	"mailer-api/internal/services"
-	"mailer-api/pkg/constants"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -61,20 +61,18 @@ func (processor *MailProcessor) ProcessMail(ctx context.Context, t *asynq.Task) 
 	}
 
 	// Convert attachments to AttachmentRequest
-	attachments := make([]models.AttachmentRequest, len(mail.Attachments))
+	attachments := make([]requests.AttachmentRequest, len(mail.Attachments))
 	for i, att := range mail.Attachments {
-		attachments[i] = models.AttachmentRequest{
+		attachments[i] = requests.AttachmentRequest{
 			File: att.File,
 		}
 	}
 
 	err = processor.service.SendMail(mail.To, mail.Subject, mail.Template, mail.Data, attachments)
 	if err != nil {
-		log.Printf("Failed to send email to %s: %v", mail.To, err)
 		mail.Status = "failed"
 		mail.Error = err.Error()
 	} else {
-		log.Printf("Successfully sent email to %s", mail.To)
 		mail.Status = "sent"
 	}
 
