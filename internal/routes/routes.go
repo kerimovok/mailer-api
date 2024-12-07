@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"mailer-api/internal/controllers"
+	"mailer-api/internal/handlers"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
@@ -17,9 +17,9 @@ func SetupRoutes(app *fiber.App) {
 
 	// Mail routes
 	mail := v1.Group("/mails")
-	mail.Post("/", controllers.SendMail)
-	mail.Get("/", controllers.GetMails)
-	mail.Get("/:id", controllers.GetMailByID)
+	mail.Post("/", handlers.SendMail)
+	mail.Get("/", handlers.GetMails)
+	mail.Get("/:id", handlers.GetMailByID)
 
 	// TODO: Add routes for attachments
 }
