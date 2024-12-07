@@ -3,61 +3,57 @@ package workers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"mailer-api/internal/constants"
 	"mailer-api/internal/models"
 	"mailer-api/internal/requests"
 	"mailer-api/internal/services"
+	"mailer-api/pkg/database"
+	"mailer-api/pkg/utils"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
-	"gorm.io/gorm"
 )
 
-type MailProcessor struct {
-	db      *gorm.DB
-	service *services.MailService
-}
+const (
+	StatusPending = "pending"
+	StatusSent    = "sent"
+	StatusFailed  = "failed"
+)
 
-func NewMailProcessor(db *gorm.DB, service *services.MailService) *MailProcessor {
-	return &MailProcessor{
-		db:      db,
-		service: service,
-	}
-}
-
+// NewEmailTask creates a new email task with the given mail ID
 func NewEmailTask(mailID uuid.UUID) (*asynq.Task, error) {
 	payload, err := json.Marshal(map[string]interface{}{"mail_id": mailID})
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError("marshal email task payload", err)
 	}
 	return asynq.NewTask(constants.TaskTypeSendEmail, payload), nil
 }
 
-func (processor *MailProcessor) ProcessMail(ctx context.Context, t *asynq.Task) error {
+// ProcessMail processes a mail task
+func ProcessMail(ctx context.Context, t *asynq.Task) error {
 	var payload map[string]interface{}
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return err
+		return utils.WrapError("unmarshal task payload", err)
 	}
 
 	mailIDInterface, ok := payload["mail_id"]
 	if !ok {
-		return fmt.Errorf("mail_id not found in payload")
+		return utils.WrapError("get mail_id from payload", nil)
 	}
 
 	mailIDStr, ok := mailIDInterface.(string)
 	if !ok {
-		return fmt.Errorf("mail_id is not a string")
+		return utils.WrapError("convert mail_id to string", nil)
 	}
 
 	mailID, err := uuid.Parse(mailIDStr)
 	if err != nil {
-		return fmt.Errorf("invalid UUID format: %w", err)
+		return utils.WrapError("parse mail UUID", err)
 	}
 
 	var mail models.Mail
-	if err := processor.db.Preload("Attachments").First(&mail, mailID).Error; err != nil {
-		return err
+	if err := database.DB.Preload("Attachments").First(&mail, mailID).Error; err != nil {
+		return utils.WrapError("fetch mail from database", err)
 	}
 
 	// Convert attachments to AttachmentRequest
@@ -68,13 +64,21 @@ func (processor *MailProcessor) ProcessMail(ctx context.Context, t *asynq.Task) 
 		}
 	}
 
-	err = processor.service.SendMail(mail.To, mail.Subject, mail.Template, mail.Data, attachments)
+	utils.LogInfo("processing mail: " + mail.ID.String())
+
+	err = services.SendMail(mail.To, mail.Subject, mail.Template, mail.Data, attachments)
 	if err != nil {
-		mail.Status = "failed"
+		utils.LogError("failed to send mail", err)
+		mail.Status = StatusFailed
 		mail.Error = err.Error()
 	} else {
-		mail.Status = "sent"
+		utils.LogInfo("mail sent successfully: " + mail.ID.String())
+		mail.Status = StatusSent
 	}
 
-	return processor.db.Save(&mail).Error
+	if err := database.DB.Save(&mail).Error; err != nil {
+		return utils.WrapError("update mail status", err)
+	}
+
+	return nil
 }

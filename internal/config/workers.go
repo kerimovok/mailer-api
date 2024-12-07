@@ -8,11 +8,11 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-func SetupWorkers(server *asynq.Server, processor *workers.MailProcessor) error {
+func SetupWorkers(server *asynq.Server) error {
 	mux := asynq.NewServeMux()
 
 	// Register task controllers
-	mux.HandleFunc(constants.TaskTypeSendEmail, processor.ProcessMail)
+	mux.HandleFunc(constants.TaskTypeSendEmail, workers.ProcessMail)
 
 	// Start Asynq server
 	go func() {

@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
 	"mailer-api/internal/requests"
+	"mailer-api/pkg/utils"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,28 +15,25 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-type MailService struct {
+var (
 	smtpHost     string
 	smtpPort     string
 	smtpUsername string
 	smtpPassword string
 	smtpFrom     string
 	dialer       *gomail.Dialer
-}
+)
 
-func NewMailService(host, port, username, password, from string) *MailService {
-	portInt, _ := strconv.Atoi(port)
-	dialer := gomail.NewDialer(host, portInt, username, password)
+func InitMailService() {
+	smtpHost = utils.GetEnv("SMTP_HOST")
+	smtpPort = utils.GetEnv("SMTP_PORT")
+	smtpUsername = utils.GetEnv("SMTP_USERNAME")
+	smtpPassword = utils.GetEnv("SMTP_PASSWORD")
+	smtpFrom = utils.GetEnv("SMTP_FROM")
+
+	portInt, _ := strconv.Atoi(smtpPort)
+	dialer = gomail.NewDialer(smtpHost, portInt, smtpUsername, smtpPassword)
 	dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-
-	return &MailService{
-		smtpHost:     host,
-		smtpPort:     port,
-		smtpUsername: username,
-		smtpPassword: password,
-		smtpFrom:     from,
-		dialer:       dialer,
-	}
 }
 
 func createTemplateFuncMap() template.FuncMap {
@@ -47,7 +44,7 @@ func createTemplateFuncMap() template.FuncMap {
 	}
 }
 
-func (s *MailService) SendMail(to, subject, templateName string, data string, attachments []requests.AttachmentRequest) error {
+func SendMail(to, subject, templateName string, data string, attachments []requests.AttachmentRequest) error {
 	var templateData map[string]interface{}
 	if err := json.Unmarshal([]byte(data), &templateData); err != nil {
 		return fmt.Errorf("failed to unmarshal template data: %w", err)
@@ -67,7 +64,7 @@ func (s *MailService) SendMail(to, subject, templateName string, data string, at
 	// Use absolute path for template
 	templatePath := filepath.Join("templates", templateName+".html")
 	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
-		log.Printf("Template file not found: %s", templatePath)
+		utils.LogWarn("Template file not found: " + templatePath)
 		return fmt.Errorf("template not found: %s", templateName)
 	}
 
@@ -85,7 +82,7 @@ func (s *MailService) SendMail(to, subject, templateName string, data string, at
 	}
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", fmt.Sprintf("%s <%s>", s.smtpFrom, s.smtpUsername))
+	m.SetHeader("From", fmt.Sprintf("%s <%s>", smtpFrom, smtpUsername))
 	m.SetHeader("To", to)
 	m.SetHeader("Subject", parsedSubject.String())
 	m.SetBody("text/html", body.String())
@@ -99,7 +96,7 @@ func (s *MailService) SendMail(to, subject, templateName string, data string, at
 		m.Attach(attachPath)
 	}
 
-	if err := s.dialer.DialAndSend(m); err != nil {
+	if err := dialer.DialAndSend(m); err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 

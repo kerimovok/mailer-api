@@ -6,7 +6,6 @@ import (
 	"mailer-api/internal/constants"
 	"mailer-api/internal/routes"
 	"mailer-api/internal/services"
-	"mailer-api/internal/workers"
 	"mailer-api/pkg/database"
 	"mailer-api/pkg/utils"
 	"mailer-api/pkg/validator"
@@ -42,6 +41,9 @@ func init() {
 	if err := database.ConnectDB(); err != nil {
 		utils.LogFatal("failed to connect to database", err)
 	}
+
+	// Initialize services
+	services.InitMailService()
 }
 
 func setupApp() *fiber.App {
@@ -70,18 +72,7 @@ func main() {
 	config.ConnectAsynq()
 	defer config.AsynqClient.Close()
 
-	// Setup mail service
-	mailService := services.NewMailService(
-		utils.GetEnv("SMTP_HOST"),
-		utils.GetEnv("SMTP_PORT"),
-		utils.GetEnv("SMTP_USERNAME"),
-		utils.GetEnv("SMTP_PASSWORD"),
-		utils.GetEnv("SMTP_FROM"),
-	)
-
-	// Setup mail processor and workers
-	mailProcessor := workers.NewMailProcessor(database.DB, mailService)
-	if err := config.SetupWorkers(config.AsynqServer, mailProcessor); err != nil {
+	if err := config.SetupWorkers(config.AsynqServer); err != nil {
 		utils.LogFatal("failed to setup workers", err)
 	}
 
