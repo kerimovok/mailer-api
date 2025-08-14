@@ -1,14 +1,13 @@
 package config
 
 import (
-	"mailer-api/pkg/utils"
-
 	"github.com/joho/godotenv"
+	"github.com/kerimovok/go-pkg-utils/config"
 )
 
 func LoadConfig() error {
 	if err := godotenv.Load(); err != nil {
-		if utils.GetEnv("GO_ENV") != "production" {
+		if config.GetEnv("GO_ENV") != "production" {
 			return err
 		}
 	}

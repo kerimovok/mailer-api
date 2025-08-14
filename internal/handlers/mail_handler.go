@@ -1,33 +1,39 @@
 package handlers
 
 import (
-	"encoding/json"
+	"log"
 	"mailer-api/internal/config"
+	"mailer-api/internal/database"
 	"mailer-api/internal/models"
 	"mailer-api/internal/requests"
 	"mailer-api/internal/workers"
-	"mailer-api/pkg/database"
-	"mailer-api/pkg/utils"
-	"mailer-api/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/kerimovok/go-pkg-database/sql"
+	"github.com/kerimovok/go-pkg-utils/httpx"
+	"github.com/kerimovok/go-pkg-utils/validator"
 	"gorm.io/gorm"
 )
 
 func SendMail(c *fiber.Ctx) error {
 	var input requests.MailRequest
 	if err := c.BodyParser(&input); err != nil {
-		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err)
+		response := httpx.BadRequest("Invalid request body", err)
+		return httpx.SendResponse(c, response)
 	}
 
-	if err := validator.ValidateStruct(&input); err != nil {
-		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err)
-	}
-
-	dataJSON, err := json.Marshal(input.Data)
-	if err != nil {
-		utils.LogError("failed to marshal data", err)
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to marshal data", err)
+	validationErrors := validator.ValidateStruct(&input)
+	if validationErrors.HasErrors() {
+		// Convert validator.ValidationErrors to []httpx.ValidationError
+		httpxErrors := make([]httpx.ValidationError, len(validationErrors))
+		for i, err := range validationErrors {
+			httpxErrors[i] = httpx.ValidationError{
+				Field:   err.Field,
+				Message: err.Message,
+			}
+		}
+		response := httpx.UnprocessableEntityWithValidation("Validation failed", httpxErrors)
+		return httpx.SendValidationResponse(c, response)
 	}
 
 	// Create mail record
@@ -35,12 +41,12 @@ func SendMail(c *fiber.Ctx) error {
 		To:       input.To,
 		Subject:  input.Subject,
 		Template: input.Template,
-		Data:     string(dataJSON),
+		Data:     sql.JSONB(input.Data),
 		Status:   "pending",
 	}
 
 	// Use WithTransaction helper
-	err = database.WithTransaction(func(tx *gorm.DB) error {
+	err := sql.WithTransaction(database.DB, func(tx *gorm.DB) error {
 		// Create mail record
 		if err := tx.Create(&mail).Error; err != nil {
 			return err
@@ -60,39 +66,47 @@ func SendMail(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
-		utils.LogError("transaction failed", err)
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to process mail", err)
+		log.Printf("transaction failed: %v", err)
+		response := httpx.InternalServerError("Failed to process mail", err)
+		return httpx.SendResponse(c, response)
 	}
 
 	task, err := workers.NewEmailTask(mail.ID)
 	if err != nil {
-		utils.LogError("failed to create email task", err)
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to create email task", err)
+		log.Printf("failed to create email task: %v", err)
+		response := httpx.InternalServerError("Failed to create email task", err)
+		return httpx.SendResponse(c, response)
 	}
 
 	_, err = config.AsynqClient.Enqueue(task)
 	if err != nil {
-		utils.LogError("failed to enqueue email task", err)
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to enqueue email task", err)
+		log.Printf("failed to enqueue email task: %v", err)
+		response := httpx.InternalServerError("Failed to enqueue email task", err)
+		return httpx.SendResponse(c, response)
 	}
 
-	return utils.SuccessResponse(c, "Email queued successfully", mail)
+	response := httpx.OK("Email queued successfully", mail)
+	return httpx.SendResponse(c, response)
 }
 
 func GetMails(c *fiber.Ctx) error {
 	var mails []models.Mail
 	if err := database.DB.Find(&mails).Error; err != nil {
-		utils.LogError("failed to fetch mails", err)
-		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to fetch mails", err)
+		log.Printf("failed to fetch mails: %v", err)
+		response := httpx.InternalServerError("Failed to fetch mails", err)
+		return httpx.SendResponse(c, response)
 	}
-	return utils.SuccessResponse(c, "Mails fetched successfully", mails)
+	response := httpx.OK("Mails fetched successfully", mails)
+	return httpx.SendResponse(c, response)
 }
 
 func GetMailByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var mail models.Mail
 	if err := database.DB.First(&mail, id).Error; err != nil {
-		return utils.ErrorResponse(c, fiber.StatusNotFound, "Mail not found", err)
+		response := httpx.NotFound("Mail not found")
+		return httpx.SendResponse(c, response)
 	}
-	return utils.SuccessResponse(c, "Mail fetched successfully", mail)
+	response := httpx.OK("Mail fetched successfully", mail)
+	return httpx.SendResponse(c, response)
 }

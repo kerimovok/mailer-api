@@ -1,9 +1,8 @@
 package config
 
 import (
-	"mailer-api/pkg/utils"
-
 	"github.com/hibiken/asynq"
+	"github.com/kerimovok/go-pkg-utils/config"
 )
 
 var AsynqClient *asynq.Client
@@ -11,8 +10,8 @@ var AsynqServer *asynq.Server
 
 func ConnectAsynq() {
 	redisConnection := asynq.RedisClientOpt{
-		Addr:     utils.GetEnv("REDIS_ADDR"),
-		Password: utils.GetEnv("REDIS_PASSWORD"),
+		Addr:     config.GetEnv("REDIS_ADDR"),
+		Password: config.GetEnv("REDIS_PASSWORD"),
 	}
 
 	AsynqClient = asynq.NewClient(redisConnection)

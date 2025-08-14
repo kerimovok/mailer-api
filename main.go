@@ -1,14 +1,12 @@
-// main.go
 package main
 
 import (
+	"log"
 	"mailer-api/internal/config"
 	"mailer-api/internal/constants"
+	"mailer-api/internal/database"
 	"mailer-api/internal/routes"
 	"mailer-api/internal/services"
-	"mailer-api/pkg/database"
-	"mailer-api/pkg/utils"
-	"mailer-api/pkg/validator"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,25 +19,24 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/google/uuid"
+	pkgConfig "github.com/kerimovok/go-pkg-utils/config"
+	pkgValidator "github.com/kerimovok/go-pkg-utils/validator"
 )
 
 func init() {
 	// Load all configs
 	if err := config.LoadConfig(); err != nil {
-		utils.LogFatal("failed to load configs", err)
+		log.Fatalf("failed to load configs: %v", err)
 	}
 
 	// Validate environment variables
-	if err := utils.ValidateConfig(constants.EnvValidationRules); err != nil {
-		utils.LogFatal("configuration validation failed", err)
+	if err := pkgValidator.ValidateConfig(constants.EnvValidationRules); err != nil {
+		log.Fatalf("configuration validation failed: %v", err)
 	}
-
-	// Initialize validator
-	validator.InitValidator()
 
 	// Connect to database
 	if err := database.ConnectDB(); err != nil {
-		utils.LogFatal("failed to connect to database", err)
+		log.Fatalf("failed to connect to database: %v", err)
 	}
 
 	// Initialize services
@@ -73,7 +70,7 @@ func main() {
 	defer config.AsynqClient.Close()
 
 	if err := config.SetupWorkers(config.AsynqServer); err != nil {
-		utils.LogFatal("failed to setup workers", err)
+		log.Fatalf("failed to setup workers: %v", err)
 	}
 
 	// Setup routes
@@ -85,16 +82,14 @@ func main() {
 
 	go func() {
 		<-quit
-		utils.LogInfo("shutting down server...")
+		log.Println("shutting down server...")
 
 		if err := app.Shutdown(); err != nil {
-			utils.LogFatal("server forced to shutdown", err)
+			log.Fatalf("server forced to shutdown: %v", err)
 		}
 
 		config.AsynqServer.Shutdown()
 	}()
 
-	// Start server
-	utils.LogFatal("failed to start server", app.Listen(":"+utils.GetEnv("PORT")))
-
+	log.Fatalf("failed to start server: %v", app.Listen(":"+pkgConfig.GetEnv("PORT")))
 }
