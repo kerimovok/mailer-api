@@ -1,12 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log"
-	"mailer-api/internal/config"
 	"mailer-api/internal/database"
 	"mailer-api/internal/models"
 	"mailer-api/internal/requests"
-	"mailer-api/internal/workers"
+	"mailer-api/internal/services"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kerimovok/go-pkg-database/sql"
@@ -71,21 +71,31 @@ func SendMail(c *fiber.Ctx) error {
 		return httpx.SendResponse(c, response)
 	}
 
-	task, err := workers.NewEmailTask(mail.ID)
+	// Convert data to string for SendMail
+	dataStr, err := json.Marshal(input.Data)
 	if err != nil {
-		log.Printf("failed to create email task: %v", err)
-		response := httpx.InternalServerError("Failed to create email task", err)
+		log.Printf("failed to marshal data: %v", err)
+		response := httpx.InternalServerError("Failed to marshal data", err)
 		return httpx.SendResponse(c, response)
 	}
 
-	_, err = config.AsynqClient.Enqueue(task)
+	// Send the email immediately
+	err = services.SendMail(input.To, input.Subject, input.Template, string(dataStr), input.Attachments)
 	if err != nil {
-		log.Printf("failed to enqueue email task: %v", err)
-		response := httpx.InternalServerError("Failed to enqueue email task", err)
-		return httpx.SendResponse(c, response)
+		log.Printf("failed to send mail: %v", err)
+		mail.Status = "failed"
+		mail.Error = err.Error()
+	} else {
+		log.Printf("mail sent successfully: %s", mail.ID.String())
+		mail.Status = "sent"
 	}
 
-	response := httpx.OK("Email queued successfully", mail)
+	// Update mail status
+	if err := database.DB.Save(&mail).Error; err != nil {
+		log.Printf("failed to update mail status: %v", err)
+	}
+
+	response := httpx.OK("Email processed successfully", mail)
 	return httpx.SendResponse(c, response)
 }
 

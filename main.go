@@ -5,6 +5,7 @@ import (
 	"mailer-api/internal/config"
 	"mailer-api/internal/constants"
 	"mailer-api/internal/database"
+	"mailer-api/internal/queue"
 	"mailer-api/internal/routes"
 	"mailer-api/internal/services"
 	"os"
@@ -65,13 +66,12 @@ func main() {
 	// Setup Fiber app
 	app := setupApp()
 
-	// Setup Redis and Asynq
-	config.ConnectAsynq()
-	defer config.AsynqClient.Close()
+	// Setup RabbitMQ consumer
+	consumer := queue.NewConsumer()
+	defer consumer.Close()
 
-	if err := config.SetupWorkers(config.AsynqServer); err != nil {
-		log.Fatalf("failed to setup workers: %v", err)
-	}
+	// Start consuming messages in background
+	go consumer.StartConsuming()
 
 	// Setup routes
 	routes.SetupRoutes(app)
@@ -87,8 +87,6 @@ func main() {
 		if err := app.Shutdown(); err != nil {
 			log.Fatalf("server forced to shutdown: %v", err)
 		}
-
-		config.AsynqServer.Shutdown()
 	}()
 
 	log.Fatalf("failed to start server: %v", app.Listen(":"+pkgConfig.GetEnv("PORT")))

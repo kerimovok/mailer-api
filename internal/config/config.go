@@ -8,7 +8,7 @@ import (
 func LoadConfig() error {
 	if err := godotenv.Load(); err != nil {
 		if config.GetEnv("GO_ENV") != "production" {
-			return err
+			return nil
 		}
 	}
 
