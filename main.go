@@ -8,6 +8,7 @@ import (
 	"mailer-api/internal/queue"
 	"mailer-api/internal/routes"
 	"mailer-api/internal/services"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -76,18 +77,28 @@ func main() {
 	// Setup routes
 	routes.SetupRoutes(app)
 
-	// Graceful shutdown channel
+	// Setup graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		<-quit
-		log.Println("shutting down server...")
+		log.Println("Gracefully shutting down...")
 
+		// Shutdown the server
 		if err := app.Shutdown(); err != nil {
-			log.Fatalf("server forced to shutdown: %v", err)
+			log.Printf("error during server shutdown: %v", err)
 		}
+
+		// Close RabbitMQ consumer
+		consumer.Close()
+
+		log.Println("Server gracefully stopped")
+		os.Exit(0)
 	}()
 
-	log.Fatalf("failed to start server: %v", app.Listen(":"+pkgConfig.GetEnv("PORT")))
+	// Start server
+	if err := app.Listen(":" + pkgConfig.GetEnv("PORT")); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("failed to start server: %v", err)
+	}
 }
