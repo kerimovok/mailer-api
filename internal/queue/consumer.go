@@ -178,7 +178,9 @@ func (c *Consumer) processEmailTask(msg amqp.Delivery) {
 		log.Printf("Failed to marshal email data: %v", err)
 		mail.Status = "failed"
 		mail.Error = err.Error()
-		database.DB.Save(&mail)
+		if saveErr := database.DB.Save(&mail).Error; saveErr != nil {
+			log.Printf("Failed to save failed mail status: %v", saveErr)
+		}
 		return
 	}
 
@@ -196,6 +198,8 @@ func (c *Consumer) processEmailTask(msg amqp.Delivery) {
 	// Update mail status
 	if err := database.DB.Save(&mail).Error; err != nil {
 		log.Printf("Failed to update mail status: %v", err)
+		// TODO: Add to a retry queue or dead letter queue
+		return
 	}
 }
 

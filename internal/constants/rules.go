@@ -38,6 +38,11 @@ var EnvValidationRules = []validator.ValidationRule{
 		Message:  "database user is required",
 	},
 	{
+		Variable: "DB_PASS",
+		Rule:     func(v string) bool { return v != "" },
+		Message:  "database password is required",
+	},
+	{
 		Variable: "DB_NAME",
 		Default:  "auth",
 		Rule:     func(v string) bool { return v != "" },
@@ -65,6 +70,13 @@ var EnvValidationRules = []validator.ValidationRule{
 		Variable: "SMTP_PASSWORD",
 		Rule:     func(v string) bool { return v != "" },
 		Message:  "SMTP password is required",
+	},
+
+	// SMTP From validation
+	{
+		Variable: "SMTP_FROM",
+		Rule:     func(v string) bool { return v != "" },
+		Message:  "SMTP from address is required",
 	},
 
 	// Redis validation
