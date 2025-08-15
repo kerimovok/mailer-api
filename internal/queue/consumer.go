@@ -8,6 +8,7 @@ import (
 	"mailer-api/internal/models"
 	"mailer-api/internal/services"
 	"os"
+	"sync"
 
 	"github.com/kerimovok/go-pkg-database/sql"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -17,6 +18,7 @@ import (
 type Consumer struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
+	mu      sync.RWMutex // Protect connection updates
 }
 
 type EmailTask struct {
@@ -114,6 +116,14 @@ func NewConsumer() *Consumer {
 }
 
 func (c *Consumer) StartConsuming() {
+	// Check connection health before starting
+	c.mu.RLock()
+	if c.conn == nil || c.conn.IsClosed() || c.channel == nil || c.channel.IsClosed() {
+		c.mu.RUnlock()
+		log.Fatal("RabbitMQ connection is not available")
+	}
+	c.mu.RUnlock()
+
 	msgs, err := c.channel.Consume(
 		"email_queue", // queue
 		"",            // consumer
@@ -132,6 +142,13 @@ func (c *Consumer) StartConsuming() {
 	for msg := range msgs {
 		go c.processEmailTask(msg)
 	}
+}
+
+// IsConnected returns true if the consumer has a valid connection
+func (c *Consumer) IsConnected() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.conn != nil && !c.conn.IsClosed() && c.channel != nil && !c.channel.IsClosed()
 }
 
 func (c *Consumer) processEmailTask(msg amqp.Delivery) {
@@ -204,6 +221,9 @@ func (c *Consumer) processEmailTask(msg amqp.Delivery) {
 }
 
 func (c *Consumer) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := c.channel.Close(); err != nil {
 		return err
 	}
