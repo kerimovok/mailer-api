@@ -78,11 +78,4 @@ var EnvValidationRules = []validator.ValidationRule{
 		Rule:     func(v string) bool { return v != "" },
 		Message:  "SMTP from address is required",
 	},
-
-	// Redis validation
-	{
-		Variable: "REDIS_ADDR",
-		Rule:     func(v string) bool { return v != "" },
-		Message:  "Redis address is required",
-	},
 }
