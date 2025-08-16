@@ -64,18 +64,46 @@ func setupApp() *fiber.App {
 }
 
 func main() {
-	// Setup Fiber app
-	app := setupApp()
+	// Get service configuration
+	enableRestAPI := pkgConfig.GetEnv("ENABLE_REST_API") == "true"
+	enableRabbitMQConsumer := pkgConfig.GetEnv("ENABLE_RABBITMQ_CONSUMER") == "true"
 
-	// Setup RabbitMQ consumer
-	consumer := queue.NewConsumer()
-	defer consumer.Close()
+	log.Printf("Service configuration: REST API=%v, RabbitMQ Consumer=%v", enableRestAPI, enableRabbitMQConsumer)
 
-	// Start consuming messages in background
-	go consumer.StartConsuming()
+	// Ensure at least one service is enabled
+	if !enableRestAPI && !enableRabbitMQConsumer {
+		log.Fatal("At least one service must be enabled (ENABLE_REST_API or ENABLE_RABBITMQ_CONSUMER)")
+	}
 
-	// Setup routes
-	routes.SetupRoutes(app)
+	var app *fiber.App
+	var consumer *queue.Consumer
+
+	// Setup Fiber app only if REST API is enabled
+	if enableRestAPI {
+		app = setupApp()
+		// Setup routes
+		routes.SetupRoutes(app)
+		log.Println("REST API server initialized")
+	}
+
+	// Setup RabbitMQ consumer only if enabled
+	if enableRabbitMQConsumer {
+		var err error
+		consumer, err = queue.NewConsumer()
+		if err != nil {
+			log.Printf("Failed to initialize RabbitMQ consumer: %v", err)
+			log.Println("Continuing without RabbitMQ consumer...")
+			enableRabbitMQConsumer = false
+		} else {
+			// Start consuming messages in background
+			go func() {
+				if err := consumer.StartConsuming(); err != nil {
+					log.Printf("RabbitMQ consumer error: %v", err)
+				}
+			}()
+			log.Println("RabbitMQ consumer initialized")
+		}
+	}
 
 	// Setup graceful shutdown
 	quit := make(chan os.Signal, 1)
@@ -85,20 +113,33 @@ func main() {
 		<-quit
 		log.Println("Gracefully shutting down...")
 
-		// Shutdown the server
-		if err := app.Shutdown(); err != nil {
-			log.Printf("error during server shutdown: %v", err)
+		// Shutdown the server if REST API is enabled
+		if enableRestAPI && app != nil {
+			if err := app.Shutdown(); err != nil {
+				log.Printf("error during server shutdown: %v", err)
+			}
 		}
 
-		// Close RabbitMQ consumer
-		consumer.Close()
+		// Close RabbitMQ consumer if enabled
+		if enableRabbitMQConsumer && consumer != nil {
+			if err := consumer.Close(); err != nil {
+				log.Printf("error during consumer shutdown: %v", err)
+			}
+		}
 
 		log.Println("Server gracefully stopped")
 		os.Exit(0)
 	}()
 
-	// Start server
-	if err := app.Listen(":" + pkgConfig.GetEnv("PORT")); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("failed to start server: %v", err)
+	// Start server only if REST API is enabled
+	if enableRestAPI {
+		log.Printf("Starting REST API server on port %s", pkgConfig.GetEnv("PORT"))
+		if err := app.Listen(":" + pkgConfig.GetEnv("PORT")); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("failed to start server: %v", err)
+		}
+	} else {
+		log.Println("REST API is disabled, running in consumer-only mode")
+		// Keep the main goroutine alive for the consumer
+		select {}
 	}
 }

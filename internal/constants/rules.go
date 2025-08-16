@@ -20,6 +20,20 @@ var EnvValidationRules = []validator.ValidationRule{
 		Message:  "GO_ENV must be either 'development' or 'production'",
 	},
 
+	// Service configuration
+	{
+		Variable: "ENABLE_REST_API",
+		Default:  "true",
+		Rule:     func(v string) bool { return v == "true" || v == "false" },
+		Message:  "ENABLE_REST_API must be either 'true' or 'false'",
+	},
+	{
+		Variable: "ENABLE_RABBITMQ_CONSUMER",
+		Default:  "true",
+		Rule:     func(v string) bool { return v == "true" || v == "false" },
+		Message:  "ENABLE_RABBITMQ_CONSUMER must be either 'true' or 'false'",
+	},
+
 	// Database validation
 	{
 		Variable: "DB_HOST",
@@ -77,5 +91,37 @@ var EnvValidationRules = []validator.ValidationRule{
 		Variable: "SMTP_FROM",
 		Rule:     func(v string) bool { return v != "" },
 		Message:  "SMTP from address is required",
+	},
+
+	// RabbitMQ validation (only required when ENABLE_RABBITMQ_CONSUMER=true)
+	{
+		Variable: "RABBITMQ_HOST",
+		Default:  "localhost",
+		Rule:     func(v string) bool { return v != "" },
+		Message:  "RabbitMQ host is required when consumer is enabled",
+	},
+	{
+		Variable: "RABBITMQ_PORT",
+		Default:  "5672",
+		Rule:     config.IsValidPort,
+		Message:  "RabbitMQ port must be a valid port number",
+	},
+	{
+		Variable: "RABBITMQ_USERNAME",
+		Default:  "guest",
+		Rule:     func(v string) bool { return v != "" },
+		Message:  "RabbitMQ username is required when consumer is enabled",
+	},
+	{
+		Variable: "RABBITMQ_PASSWORD",
+		Default:  "guest",
+		Rule:     func(v string) bool { return v != "" },
+		Message:  "RabbitMQ password is required when consumer is enabled",
+	},
+	{
+		Variable: "RABBITMQ_VHOST",
+		Default:  "/",
+		Rule:     func(v string) bool { return v != "" },
+		Message:  "RabbitMQ vhost is required when consumer is enabled",
 	},
 }

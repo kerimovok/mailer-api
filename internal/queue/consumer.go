@@ -29,7 +29,7 @@ type EmailTask struct {
 	Type     string                 `json:"type"`
 }
 
-func NewConsumer() *Consumer {
+func NewConsumer() (*Consumer, error) {
 	// Get RabbitMQ connection details from environment variables
 	host := getEnvOrDefault("RABBITMQ_HOST", "localhost")
 	port := getEnvOrDefault("RABBITMQ_PORT", "5672")
@@ -48,12 +48,13 @@ func NewConsumer() *Consumer {
 
 	conn, err := amqp.Dial(url)
 	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+		return nil, fmt.Errorf("failed to connect to RabbitMQ: %v", err)
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatalf("Failed to open channel: %v", err)
+		conn.Close()
+		return nil, fmt.Errorf("failed to open channel: %v", err)
 	}
 
 	// Declare exchange
@@ -67,7 +68,9 @@ func NewConsumer() *Consumer {
 		nil,      // arguments
 	)
 	if err != nil {
-		log.Fatalf("Failed to declare exchange: %v", err)
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to declare exchange: %v", err)
 	}
 
 	// Declare queue
@@ -84,7 +87,9 @@ func NewConsumer() *Consumer {
 		},
 	)
 	if err != nil {
-		log.Fatalf("Failed to declare queue: %v", err)
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to declare queue: %v", err)
 	}
 
 	// Bind queue to exchange
@@ -96,33 +101,35 @@ func NewConsumer() *Consumer {
 		nil,
 	)
 	if err != nil {
-		log.Fatalf("Failed to bind queue: %v", err)
-	}
-
-	// Set QoS
-	err = ch.Qos(
-		1,     // prefetch count
-		0,     // prefetch size
-		false, // global
-	)
-	if err != nil {
-		log.Fatalf("Failed to set QoS: %v", err)
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to bind queue: %v", err)
 	}
 
 	return &Consumer{
 		conn:    conn,
 		channel: ch,
-	}
+	}, nil
 }
 
-func (c *Consumer) StartConsuming() {
+func (c *Consumer) StartConsuming() error {
 	// Check connection health before starting
 	c.mu.RLock()
 	if c.conn == nil || c.conn.IsClosed() || c.channel == nil || c.channel.IsClosed() {
 		c.mu.RUnlock()
-		log.Fatal("RabbitMQ connection is not available")
+		return fmt.Errorf("RabbitMQ connection is not available")
 	}
 	c.mu.RUnlock()
+
+	// Set QoS for better message handling
+	err := c.channel.Qos(
+		1,     // prefetch count
+		0,     // prefetch size
+		false, // global
+	)
+	if err != nil {
+		return fmt.Errorf("failed to set QoS: %v", err)
+	}
 
 	msgs, err := c.channel.Consume(
 		"email_queue", // queue
@@ -134,7 +141,7 @@ func (c *Consumer) StartConsuming() {
 		nil,           // args
 	)
 	if err != nil {
-		log.Fatalf("Failed to register a consumer: %v", err)
+		return fmt.Errorf("failed to register a consumer: %v", err)
 	}
 
 	log.Println("Starting to consume email tasks from RabbitMQ...")
@@ -142,6 +149,8 @@ func (c *Consumer) StartConsuming() {
 	for msg := range msgs {
 		go c.processEmailTask(msg)
 	}
+
+	return nil
 }
 
 // IsConnected returns true if the consumer has a valid connection
