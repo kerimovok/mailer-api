@@ -7,14 +7,18 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"mailer-api/internal/database"
+	"mailer-api/internal/models"
 	"mailer-api/internal/requests"
 	"os"
 	"path/filepath"
 	"strconv"
 
+	"github.com/kerimovok/go-pkg-database/sql"
 	"github.com/kerimovok/go-pkg-utils/config"
 	"github.com/kerimovok/go-pkg-utils/errors"
 	"gopkg.in/gomail.v2"
+	"gorm.io/gorm"
 )
 
 var (
@@ -44,6 +48,69 @@ func createTemplateFuncMap() template.FuncMap {
 			return template.URL(s)
 		},
 	}
+}
+
+// ProcessEmailRequest handles the complete email processing workflow
+func ProcessEmailRequest(to, subject, templateName string, data map[string]interface{}, attachments []requests.AttachmentRequest) (*models.Mail, error) {
+	// Create mail record
+	mail := models.Mail{
+		To:       to,
+		Subject:  subject,
+		Template: templateName,
+		Data:     sql.JSONB(data),
+		Status:   "pending",
+	}
+
+	// Use WithTransaction helper
+	err := sql.WithTransaction(database.DB, func(tx *gorm.DB) error {
+		// Create mail record
+		if err := tx.Create(&mail).Error; err != nil {
+			return err
+		}
+
+		// Create attachment records
+		for _, attachment := range attachments {
+			att := models.Attachment{
+				MailID: mail.ID,
+				File:   attachment.File,
+			}
+			if err := tx.Create(&att).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert data to string for SendMail
+	dataStr, err := json.Marshal(data)
+	if err != nil {
+		mail.Status = "failed"
+		mail.Error = err.Error()
+		if saveErr := database.DB.Save(&mail).Error; saveErr != nil {
+			log.Printf("Failed to save failed mail status: %v", saveErr)
+		}
+		return nil, err
+	}
+
+	// Send the email
+	err = SendMail(to, subject, templateName, string(dataStr), attachments)
+	if err != nil {
+		mail.Status = "failed"
+		mail.Error = err.Error()
+	} else {
+		mail.Status = "sent"
+	}
+
+	// Update mail status
+	if err := database.DB.Save(&mail).Error; err != nil {
+		log.Printf("Failed to update mail status: %v", err)
+	}
+
+	return &mail, nil
 }
 
 func SendMail(to, subject, templateName string, data string, attachments []requests.AttachmentRequest) error {

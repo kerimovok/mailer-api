@@ -65,14 +65,16 @@ func setupApp() *fiber.App {
 
 func main() {
 	// Get service configuration
-	enableRestAPI := pkgConfig.GetEnv("ENABLE_REST_API") == "true"
-	enableRabbitMQConsumer := pkgConfig.GetEnv("ENABLE_RABBITMQ_CONSUMER") == "true"
+	emailProcessingMode := pkgConfig.GetEnv("EMAIL_PROCESSING_MODE")
+	enableRestAPI := emailProcessingMode == "rest-only" || emailProcessingMode == "hybrid"
+	enableRabbitMQConsumer := emailProcessingMode == "queue-only" || emailProcessingMode == "hybrid"
 
+	log.Printf("Email processing mode: %s", emailProcessingMode)
 	log.Printf("Service configuration: REST API=%v, RabbitMQ Consumer=%v", enableRestAPI, enableRabbitMQConsumer)
 
-	// Ensure at least one service is enabled
-	if !enableRestAPI && !enableRabbitMQConsumer {
-		log.Fatal("At least one service must be enabled (ENABLE_REST_API or ENABLE_RABBITMQ_CONSUMER)")
+	// Validate processing mode
+	if emailProcessingMode != "rest-only" && emailProcessingMode != "queue-only" && emailProcessingMode != "hybrid" {
+		log.Fatal("Invalid EMAIL_PROCESSING_MODE. Must be 'rest-only', 'queue-only', or 'hybrid'")
 	}
 
 	var app *fiber.App

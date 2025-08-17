@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"log"
 	"mailer-api/internal/database"
 	"mailer-api/internal/models"
@@ -9,10 +8,8 @@ import (
 	"mailer-api/internal/services"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kerimovok/go-pkg-database/sql"
 	"github.com/kerimovok/go-pkg-utils/httpx"
 	"github.com/kerimovok/go-pkg-utils/validator"
-	"gorm.io/gorm"
 )
 
 func SendMail(c *fiber.Ctx) error {
@@ -36,63 +33,12 @@ func SendMail(c *fiber.Ctx) error {
 		return httpx.SendValidationResponse(c, response)
 	}
 
-	// Create mail record
-	mail := models.Mail{
-		To:       input.To,
-		Subject:  input.Subject,
-		Template: input.Template,
-		Data:     sql.JSONB(input.Data),
-		Status:   "pending",
-	}
-
-	// Use WithTransaction helper
-	err := sql.WithTransaction(database.DB, func(tx *gorm.DB) error {
-		// Create mail record
-		if err := tx.Create(&mail).Error; err != nil {
-			return err
-		}
-
-		// Create attachment records
-		for _, attachment := range input.Attachments {
-			att := models.Attachment{
-				MailID: mail.ID,
-				File:   attachment.File,
-			}
-			if err := tx.Create(&att).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
+	// Use unified email processing
+	mail, err := services.ProcessEmailRequest(input.To, input.Subject, input.Template, input.Data, input.Attachments)
 	if err != nil {
-		log.Printf("transaction failed: %v", err)
+		log.Printf("failed to process mail: %v", err)
 		response := httpx.InternalServerError("Failed to process mail", err)
 		return httpx.SendResponse(c, response)
-	}
-
-	// Convert data to string for SendMail
-	dataStr, err := json.Marshal(input.Data)
-	if err != nil {
-		log.Printf("failed to marshal data: %v", err)
-		response := httpx.InternalServerError("Failed to marshal data", err)
-		return httpx.SendResponse(c, response)
-	}
-
-	// Send the email immediately
-	err = services.SendMail(input.To, input.Subject, input.Template, string(dataStr), input.Attachments)
-	if err != nil {
-		log.Printf("failed to send mail: %v", err)
-		mail.Status = "failed"
-		mail.Error = err.Error()
-	} else {
-		log.Printf("mail sent successfully: %s", mail.ID.String())
-		mail.Status = "sent"
-	}
-
-	// Update mail status
-	if err := database.DB.Save(&mail).Error; err != nil {
-		log.Printf("failed to update mail status: %v", err)
 	}
 
 	response := httpx.OK("Email processed successfully", mail)

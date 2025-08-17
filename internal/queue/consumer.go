@@ -4,15 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"mailer-api/internal/database"
-	"mailer-api/internal/models"
 	"mailer-api/internal/services"
 	"os"
 	"sync"
 
-	"github.com/kerimovok/go-pkg-database/sql"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"gorm.io/gorm"
 )
 
 type Consumer struct {
@@ -175,58 +171,15 @@ func (c *Consumer) processEmailTask(msg amqp.Delivery) {
 
 	log.Printf("Processing email task for user: %s, type: %s", emailTask.To, emailTask.Type)
 
-	// Create mail record
-	mail := models.Mail{
-		To:       emailTask.To,
-		Subject:  emailTask.Subject,
-		Template: emailTask.Template,
-		Data:     sql.JSONB(emailTask.Data),
-		Status:   "pending",
-	}
-
-	// Use WithTransaction helper
-	err := sql.WithTransaction(database.DB, func(tx *gorm.DB) error {
-		// Create mail record
-		if err := tx.Create(&mail).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-
+	// Use unified email processing (note: queue-based emails typically don't have attachments)
+	mail, err := services.ProcessEmailRequest(emailTask.To, emailTask.Subject, emailTask.Template, emailTask.Data, nil)
 	if err != nil {
-		log.Printf("Failed to create mail record: %v", err)
+		log.Printf("Failed to process email task: %v", err)
+		// The unified method already handles status updates, so we don't need to do anything here
 		return
 	}
 
-	// Convert data to string for SendMail
-	dataStr, err := json.Marshal(emailTask.Data)
-	if err != nil {
-		log.Printf("Failed to marshal email data: %v", err)
-		mail.Status = "failed"
-		mail.Error = err.Error()
-		if saveErr := database.DB.Save(&mail).Error; saveErr != nil {
-			log.Printf("Failed to save failed mail status: %v", saveErr)
-		}
-		return
-	}
-
-	// Send the email
-	err = services.SendMail(emailTask.To, emailTask.Subject, emailTask.Template, string(dataStr), nil)
-	if err != nil {
-		log.Printf("Failed to send email: %v", err)
-		mail.Status = "failed"
-		mail.Error = err.Error()
-	} else {
-		log.Printf("Email sent successfully to: %s", emailTask.To)
-		mail.Status = "sent"
-	}
-
-	// Update mail status
-	if err := database.DB.Save(&mail).Error; err != nil {
-		log.Printf("Failed to update mail status: %v", err)
-		// TODO: Add to a retry queue or dead letter queue
-		return
-	}
+	log.Printf("Email processed successfully from queue: %s", mail.ID.String())
 }
 
 func (c *Consumer) Close() error {

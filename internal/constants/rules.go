@@ -20,20 +20,6 @@ var EnvValidationRules = []validator.ValidationRule{
 		Message:  "GO_ENV must be either 'development' or 'production'",
 	},
 
-	// Service configuration
-	{
-		Variable: "ENABLE_REST_API",
-		Default:  "true",
-		Rule:     func(v string) bool { return v == "true" || v == "false" },
-		Message:  "ENABLE_REST_API must be either 'true' or 'false'",
-	},
-	{
-		Variable: "ENABLE_RABBITMQ_CONSUMER",
-		Default:  "true",
-		Rule:     func(v string) bool { return v == "true" || v == "false" },
-		Message:  "ENABLE_RABBITMQ_CONSUMER must be either 'true' or 'false'",
-	},
-
 	// Database validation
 	{
 		Variable: "DB_HOST",
@@ -93,12 +79,22 @@ var EnvValidationRules = []validator.ValidationRule{
 		Message:  "SMTP from address is required",
 	},
 
-	// RabbitMQ validation (only required when ENABLE_RABBITMQ_CONSUMER=true)
+	// Email processing mode
+	{
+		Variable: "EMAIL_PROCESSING_MODE",
+		Default:  "hybrid", // "rest-only", "queue-only", "hybrid"
+		Rule: func(v string) bool {
+			return v == "rest-only" || v == "queue-only" || v == "hybrid"
+		},
+		Message: "EMAIL_PROCESSING_MODE must be 'rest-only', 'queue-only', or 'hybrid'",
+	},
+
+	// RabbitMQ validation (only required when EMAIL_PROCESSING_MODE includes queue processing)
 	{
 		Variable: "RABBITMQ_HOST",
 		Default:  "localhost",
 		Rule:     func(v string) bool { return v != "" },
-		Message:  "RabbitMQ host is required when consumer is enabled",
+		Message:  "RabbitMQ host is required when queue processing is enabled",
 	},
 	{
 		Variable: "RABBITMQ_PORT",
@@ -110,18 +106,18 @@ var EnvValidationRules = []validator.ValidationRule{
 		Variable: "RABBITMQ_USERNAME",
 		Default:  "guest",
 		Rule:     func(v string) bool { return v != "" },
-		Message:  "RabbitMQ username is required when consumer is enabled",
+		Message:  "RabbitMQ username is required when queue processing is enabled",
 	},
 	{
 		Variable: "RABBITMQ_PASSWORD",
 		Default:  "guest",
 		Rule:     func(v string) bool { return v != "" },
-		Message:  "RabbitMQ password is required when consumer is enabled",
+		Message:  "RabbitMQ password is required when queue processing is enabled",
 	},
 	{
 		Variable: "RABBITMQ_VHOST",
 		Default:  "/",
 		Rule:     func(v string) bool { return v != "" },
-		Message:  "RabbitMQ vhost is required when consumer is enabled",
+		Message:  "RabbitMQ vhost is required when queue processing is enabled",
 	},
 }
