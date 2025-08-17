@@ -89,6 +89,26 @@ var EnvValidationRules = []validator.ValidationRule{
 		Message: "EMAIL_PROCESSING_MODE must be 'rest-only', 'queue-only', or 'hybrid'",
 	},
 
+	// Queue retry configuration
+	{
+		Variable: "QUEUE_MAX_RETRIES",
+		Default:  "3",
+		Rule:     config.IsValidNumber,
+		Message:  "QUEUE_MAX_RETRIES must be a valid number",
+	},
+	{
+		Variable: "QUEUE_RETRY_DELAY_BASE",
+		Default:  "1",
+		Rule:     config.IsValidNumber,
+		Message:  "QUEUE_RETRY_DELAY_BASE must be a valid number (seconds)",
+	},
+	{
+		Variable: "QUEUE_MAX_RETRY_DELAY",
+		Default:  "300",
+		Rule:     config.IsValidNumber,
+		Message:  "QUEUE_MAX_RETRY_DELAY must be a valid number (seconds)",
+	},
+
 	// RabbitMQ validation (only required when EMAIL_PROCESSING_MODE includes queue processing)
 	{
 		Variable: "RABBITMQ_HOST",
