@@ -23,7 +23,7 @@ var EnvValidationRules = []validator.ValidationRule{
 	// Database validation
 	{
 		Variable: "DB_HOST",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "database host is required",
 	},
 	{
@@ -34,25 +34,25 @@ var EnvValidationRules = []validator.ValidationRule{
 	},
 	{
 		Variable: "DB_USER",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "database user is required",
 	},
 	{
 		Variable: "DB_PASS",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "database password is required",
 	},
 	{
 		Variable: "DB_NAME",
 		Default:  "auth",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "database name is required",
 	},
 
 	// SMTP validation
 	{
 		Variable: "SMTP_HOST",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "SMTP host is required",
 	},
 	{
@@ -63,19 +63,19 @@ var EnvValidationRules = []validator.ValidationRule{
 	},
 	{
 		Variable: "SMTP_USERNAME",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "SMTP username is required",
 	},
 	{
 		Variable: "SMTP_PASSWORD",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "SMTP password is required",
 	},
 
 	// SMTP From validation
 	{
 		Variable: "SMTP_FROM",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "SMTP from address is required",
 	},
 
@@ -93,19 +93,19 @@ var EnvValidationRules = []validator.ValidationRule{
 	{
 		Variable: "QUEUE_MAX_RETRIES",
 		Default:  "3",
-		Rule:     config.IsValidNumber,
+		Rule:     config.IsValidInteger,
 		Message:  "QUEUE_MAX_RETRIES must be a valid number",
 	},
 	{
 		Variable: "QUEUE_RETRY_DELAY_BASE",
 		Default:  "1",
-		Rule:     config.IsValidNumber,
+		Rule:     config.IsValidInteger,
 		Message:  "QUEUE_RETRY_DELAY_BASE must be a valid number (seconds)",
 	},
 	{
 		Variable: "QUEUE_MAX_RETRY_DELAY",
 		Default:  "300",
-		Rule:     config.IsValidNumber,
+		Rule:     config.IsValidInteger,
 		Message:  "QUEUE_MAX_RETRY_DELAY must be a valid number (seconds)",
 	},
 
@@ -113,7 +113,7 @@ var EnvValidationRules = []validator.ValidationRule{
 	{
 		Variable: "RABBITMQ_HOST",
 		Default:  "localhost",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "RabbitMQ host is required when queue processing is enabled",
 	},
 	{
@@ -125,19 +125,19 @@ var EnvValidationRules = []validator.ValidationRule{
 	{
 		Variable: "RABBITMQ_USERNAME",
 		Default:  "guest",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "RabbitMQ username is required when queue processing is enabled",
 	},
 	{
 		Variable: "RABBITMQ_PASSWORD",
 		Default:  "guest",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "RabbitMQ password is required when queue processing is enabled",
 	},
 	{
 		Variable: "RABBITMQ_VHOST",
 		Default:  "/",
-		Rule:     func(v string) bool { return v != "" },
+		Rule:     config.IsValidNonEmptyString,
 		Message:  "RabbitMQ vhost is required when queue processing is enabled",
 	},
 }
