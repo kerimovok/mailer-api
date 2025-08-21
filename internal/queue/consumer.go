@@ -17,6 +17,7 @@ type Consumer struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
 	mu      sync.RWMutex // Protect connection updates
+	config  *QueueConfig
 }
 
 type EmailTask struct {
@@ -55,112 +56,25 @@ func NewConsumer() (*Consumer, error) {
 		return nil, fmt.Errorf("failed to open channel: %v", err)
 	}
 
-	// Setup dead letter queue first
-	if err := setupDeadLetterQueue(ch); err != nil {
+	// Get queue configuration
+	queueConfig := DefaultQueueConfig()
+
+	// Setup all queues and exchanges using shared configuration
+	if err := queueConfig.SetupAllQueues(ch); err != nil {
 		ch.Close()
 		conn.Close()
-		return nil, fmt.Errorf("failed to setup dead letter queue: %v", err)
+		return nil, fmt.Errorf("failed to setup queues: %v", err)
 	}
 
-	// Declare exchange
-	err = ch.ExchangeDeclare(
-		"mailer", // name
-		"direct", // type
-		true,     // durable
-		false,    // auto-deleted
-		false,    // internal
-		false,    // no-wait
-		nil,      // arguments
-	)
-	if err != nil {
-		ch.Close()
-		conn.Close()
-		return nil, fmt.Errorf("failed to declare exchange: %v", err)
-	}
-
-	// Declare queue with dead letter configuration
-	q, err := ch.QueueDeclare(
-		"email_queue", // name
-		true,          // durable
-		false,         // delete when unused
-		false,         // exclusive
-		false,         // no-wait
-		amqp.Table{ // arguments for additional durability and dead letter handling
-			"x-message-ttl":             int32(24 * 60 * 60 * 1000), // 24 hours TTL
-			"x-max-priority":            int32(10),                  // Priority support
-			"x-overflow":                "drop-head",                // Drop oldest when full
-			"x-dead-letter-exchange":    "mailer.dlx",               // Dead letter exchange
-			"x-dead-letter-routing-key": "email.failed",             // Routing key for DLQ
-		},
-	)
-	if err != nil {
-		ch.Close()
-		conn.Close()
-		return nil, fmt.Errorf("failed to declare queue: %v", err)
-	}
-
-	// Bind queue to exchange
-	err = ch.QueueBind(
-		q.Name,   // queue name
-		"email",  // routing key
-		"mailer", // exchange
-		false,
-		nil,
-	)
-	if err != nil {
-		ch.Close()
-		conn.Close()
-		return nil, fmt.Errorf("failed to bind queue: %v", err)
-	}
-
-	return &Consumer{
+	// setupConnectionRecovery sets up automatic reconnection for RabbitMQ
+	consumer := &Consumer{
 		conn:    conn,
 		channel: ch,
-	}, nil
-}
-
-// setupDeadLetterQueue sets up the dead letter exchange and queue for failed messages
-func setupDeadLetterQueue(ch *amqp.Channel) error {
-	// Declare dead letter exchange
-	err := ch.ExchangeDeclare(
-		"mailer.dlx", // dead letter exchange name
-		"direct",     // exchange type
-		true,         // durable
-		false,        // auto-deleted
-		false,        // internal
-		false,        // no-wait
-		nil,          // arguments
-	)
-	if err != nil {
-		return fmt.Errorf("failed to declare dead letter exchange: %v", err)
+		config:  queueConfig,
 	}
+	consumer.setupConnectionRecovery()
 
-	// Declare dead letter queue
-	dlq, err := ch.QueueDeclare(
-		"email_dlq", // dead letter queue name
-		true,        // durable
-		false,       // delete when unused
-		false,       // exclusive
-		false,       // no-wait
-		nil,         // arguments
-	)
-	if err != nil {
-		return fmt.Errorf("failed to declare dead letter queue: %v", err)
-	}
-
-	// Bind dead letter queue to exchange
-	err = ch.QueueBind(
-		dlq.Name,       // queue name
-		"email.failed", // routing key
-		"mailer.dlx",   // exchange
-		false,          // no-wait
-		nil,            // arguments
-	)
-	if err != nil {
-		return fmt.Errorf("failed to bind dead letter queue: %v", err)
-	}
-
-	return nil
+	return consumer, nil
 }
 
 func (c *Consumer) StartConsuming() error {
@@ -183,13 +97,13 @@ func (c *Consumer) StartConsuming() error {
 	}
 
 	msgs, err := c.channel.Consume(
-		"email_queue", // queue
-		"",            // consumer
-		false,         // auto-ack
-		false,         // exclusive
-		false,         // no-local
-		false,         // no-wait
-		nil,           // args
+		c.config.QueueName, // queue
+		"",                 // consumer
+		false,              // auto-ack
+		false,              // exclusive
+		false,              // no-local
+		false,              // no-wait
+		nil,                // args
 	)
 	if err != nil {
 		return fmt.Errorf("failed to register a consumer: %v", err)
@@ -278,6 +192,89 @@ func (c *Consumer) Close() error {
 	return c.conn.Close()
 }
 
+// setupConnectionRecovery sets up automatic reconnection for RabbitMQ
+func (c *Consumer) setupConnectionRecovery() {
+	// Monitor connection for errors
+	go func() {
+		for err := range c.conn.NotifyClose(make(chan *amqp.Error)) {
+			if err != nil {
+				log.Printf("RabbitMQ connection lost: %v, attempting to reconnect...", err)
+				c.reconnect()
+			}
+		}
+	}()
+
+	// Monitor channel for errors
+	go func() {
+		for err := range c.channel.NotifyClose(make(chan *amqp.Error)) {
+			if err != nil {
+				log.Printf("RabbitMQ channel lost: %v, attempting to reconnect...", err)
+				c.reconnect()
+			}
+		}
+	}()
+}
+
+// reconnect attempts to reconnect to RabbitMQ
+func (c *Consumer) reconnect() {
+	for {
+		log.Println("Attempting to reconnect to RabbitMQ...")
+
+		// Close existing connections
+		c.mu.Lock()
+		if c.channel != nil {
+			c.channel.Close()
+		}
+		if c.conn != nil {
+			c.conn.Close()
+		}
+		c.mu.Unlock()
+
+		// Wait before retry
+		time.Sleep(5 * time.Second)
+
+		// Attempt to reconnect
+		host := config.GetEnvOrDefault("RABBITMQ_HOST", "localhost")
+		port := config.GetEnvOrDefault("RABBITMQ_PORT", "5672")
+		username := config.GetEnvOrDefault("RABBITMQ_USERNAME", "guest")
+		password := config.GetEnvOrDefault("RABBITMQ_PASSWORD", "guest")
+		vhost := config.GetEnvOrDefault("RABBITMQ_VHOST", "/")
+
+		url := fmt.Sprintf("amqp://%s:%s@%s:%s/%s",
+			username, password, host, port, vhost,
+		)
+
+		conn, err := amqp.Dial(url)
+		if err != nil {
+			log.Printf("Failed to reconnect: %v, retrying in 5 seconds...", err)
+			continue
+		}
+
+		ch, err := conn.Channel()
+		if err != nil {
+			log.Printf("Failed to create channel: %v, retrying in 5 seconds...", err)
+			conn.Close()
+			continue
+		}
+
+		// Re-setup all queues and exchanges using shared configuration
+		if err := c.config.SetupAllQueues(ch); err != nil {
+			log.Printf("Failed to setup queues: %v, retrying in 5 seconds...", err)
+			ch.Close()
+			conn.Close()
+			continue
+		}
+
+		// Update consumer with new connections
+		c.mu.Lock()
+		c.conn = conn
+		c.channel = ch
+		c.mu.Unlock()
+		log.Println("Successfully reconnected to RabbitMQ")
+		break
+	}
+}
+
 // getMaxRetries gets the maximum number of retries from configuration
 func getMaxRetries() int {
 	maxRetries := config.GetEnv("QUEUE_MAX_RETRIES")
@@ -364,10 +361,10 @@ func (c *Consumer) scheduleRetry(body []byte, headers amqp.Table, delay time.Dur
 
 		// Publish back to the main queue with updated headers
 		err := c.channel.Publish(
-			"mailer", // exchange
-			"email",  // routing key
-			false,    // mandatory
-			false,    // immediate
+			c.config.ExchangeName, // exchange
+			c.config.RoutingKey,   // routing key
+			false,                 // mandatory
+			false,                 // immediate
 			amqp.Publishing{
 				ContentType:  "application/json",
 				Body:         body,
